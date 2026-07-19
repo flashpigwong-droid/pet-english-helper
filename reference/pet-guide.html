@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小学生 PET 英语学习备考指南</title>
+<style>
+  :root {
+    color-scheme: light;
+    --primary: #4F46E5;
+    --primary-light: #EEF2FF;
+    --accent: #F59E0B;
+    --accent-light: #FFFBEB;
+    --success: #10B981;
+    --success-light: #ECFDF5;
+    --text: #1E293B;
+    --text-secondary: #64748B;
+    --bg: #F8FAFC;
+    --card: #FFFFFF;
+    --border: #E2E8F0;
+    --radius: 16px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  .hero {
+    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #A855F7 100%);
+    color: white;
+    padding: 60px 24px 80px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.1) 0%, transparent 50%);
+    animation: heroGlow 8s ease-in-out infinite;
+  }
+  @keyframes heroGlow {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(5%, 5%); }
+  }
+  .hero-content { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; }
+  .hero h1 { font-size: 2.5rem; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.02em; }
+  .hero .subtitle { font-size: 1.15rem; opacity: 0.9; font-weight: 500; }
+  .hero .badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 100px;
+    padding: 6px 20px;
+    font-size: 0.875rem;
+    margin-bottom: 20px;
+  }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+  .section { padding: 56px 0; }
+  .section-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .section-desc {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: 36px;
+    font-size: 0.95rem;
+  }
+
+  .intro-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: -40px;
+    position: relative;
+    z-index: 2;
+  }
+  .intro-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    box-shadow: var(--shadow-md);
+    text-align: center;
+    transition: transform 0.2s;
+  }
+  .intro-card:hover { transform: translateY(-4px); }
+  .intro-card .icon {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 1.5rem;
+  }
+  .intro-card h3 { font-size: 1.05rem; margin-bottom: 6px; }
+  .intro-card p { color: var(--text-secondary); font-size: 0.875rem; }
+  .icon-blue { background: var(--primary-light); color: var(--primary); }
+  .icon-amber { background: var(--accent-light); color: var(--accent); }
+  .icon-green { background: var(--success-light); color: var(--success); }
+  .icon-purple { background: #F3E8FF; color: #7C3AED; }
+
+  .exam-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .exam-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border-top: 4px solid var(--primary);
+  }
+  .exam-card:nth-child(2) { border-top-color: #F59E0B; }
+  .exam-card:nth-child(3) { border-top-color: #10B981; }
+  .exam-card:nth-child(4) { border-top-color: #7C3AED; }
+  .exam-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .exam-card .meta { color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 10px; }
+  .exam-card ul { list-style: none; font-size: 0.875rem; }
+  .exam-card ul li { padding: 4px 0; }
+  .exam-card ul li::before { content: '▸ '; color: var(--primary); font-size: 0.75rem; }
+
+  .timeline { position: relative; padding-left: 32px; }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 11px; top: 8px; bottom: 8px;
+    width: 2px;
+    background: var(--border);
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 28px;
+    padding-left: 20px;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -25px; top: 6px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 3px solid white;
+    box-shadow: 0 0 0 3px var(--primary);
+  }
+  .timeline-item:nth-child(even)::before { background: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .timeline-item h3 { font-size: 1rem; margin-bottom: 4px; }
+  .timeline-item .phase { font-size: 0.8rem; color: var(--primary); font-weight: 600; }
+  .timeline-item p { font-size: 0.9rem; color: var(--text-secondary); }
+
+  .tips-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .tip-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+  }
+  .tip-card .num {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--primary-light);
+    color: var(--primary);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    font-size: 0.875rem;
+    margin-bottom: 12px;
+  }
+  .tip-card h3 { font-size: 1rem; margin-bottom: 6px; }
+  .tip-card p { font-size: 0.875rem; color: var(--text-secondary); }
+
+  .faq-item {
+    background: var(--card);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .faq-q {
+    padding: 18px 24px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    font-size: 0.95rem;
+  }
+  .faq-q:hover { background: var(--bg); }
+  .faq-a {
+    padding: 0 24px 18px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    display: none;
+  }
+  .faq-item.open .faq-a { display: block; }
+  .faq-q .arrow { transition: transform 0.25s; font-size: 0.75rem; color: var(--text-secondary); }
+  .faq-item.open .faq-q .arrow { transform: rotate(180deg); }
+
+  .schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .schedule-table th {
+    background: var(--primary);
+    color: white;
+    padding: 14px 16px;
+    font-size: 0.875rem;
+    text-align: left;
+  }
+  .schedule-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+  }
+  .schedule-table tr:last-child td { border-bottom: none; }
+  .schedule-table .day { font-weight: 600; white-space: nowrap; }
+  .schedule-table .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .tag-read { background: #DBEAFE; color: #1D4ED8; }
+  .tag-write { background: #FEF3C7; color: #B45309; }
+  .tag-listen { background: #D1FAE5; color: #047857; }
+  .tag-speak { background: #EDE9FE; color: #6D28D9; }
+  .tag-vocab { background: #FCE7F3; color: #BE185D; }
+  .tag-rest { background: #F1F5F9; color: #64748B; }
+
+  footer {
+    background: #1E293B;
+    color: #94A3B8;
+    text-align: center;
+    padding: 32px 24px;
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 1.8rem; }
+    .hero { padding: 40px 20px 60px; }
+    .section { padding: 40px 0; }
+    .intro-cards { margin-top: -30px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-content">
+    <div class="badge">📚 Cambridge English · B1 Preliminary</div>
+    <h1>小学生 PET 英语<br>学习备考全攻略</h1>
+    <p class="subtitle">适合 9-13 岁小学生的 PET 考试系统化学习方案，从入门到优秀，一步步带你通关</p>
+  </div>
+</header>
+
+<div class="container" style="margin-top:-40px;position:relative;z-index:2;">
+  <div class="intro-cards">
+    <div class="intro-card">
+      <div class="icon icon-blue">🎯</div>
+      <h3>PET 是什么？</h3>
+      <p>剑桥通用英语第二级，B1 水平，相当于国内高中英语程度</p>
+    </div>
+    <div class="intro-card">
+      <div class="icon icon-amber">👦</div>
+      <h3>适合谁考？</h3>
+      <p>适合有一定英语基础的小学中高年级学生，词汇量约 1500-2000</p>
+    </div>
+    <div class="intro-card">
+      <div class="icon icon-green">🏆</div>
+      <h3>考了有什么用？</h3>
+      <p>国际认可度高，为 KET 的进阶，也是衔接 FCE 和小升初的有力证明</p>
+    </div>
+    <div class="intro-card">
+      <div class="icon icon-purple">📝</div>
+      <h3>怎么考？</h3>
+      <p>分阅读写作、听力、口语三大部分，总分 170 分，140 分及格</p>
+    </div>
+  </div>
+</div>
+
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">考试结构与评分</h2>
+    <p class="section-desc">了解 PET 考试的四个部分，做到心中有数</p>
+    <div class="exam-grid">
+      <div class="exam-card">
+        <h3>📖 阅读 (Reading)</h3>
+        <div class="meta">45 分钟 · 32 题 · 占 25%</div>
+        <ul>
+          <li>选择题、匹配题</li>
+          <li>阅读短篇文章</li>
+          <li>理解主旨与细节</li>
+          <li>推断作者意图</li>
+        </ul>
+      </div>
+      <div class="exam-card">
+        <h3>✍️ 写作 (Writing)</h3>
+        <div class="meta">45 分钟 · 2 篇 · 占 25%</div>
+        <ul>
+          <li>邮件/便条写作 (100词)</li>
+          <li>短文或故事续写 (100词)</li>
+          <li>语法准确性</li>
+          <li>内容组织与连贯</li>
+        </ul>
+      </div>
+      <div class="exam-card">
+        <h3>🎧 听力 (Listening)</h3>
+        <div class="meta">30 分钟 · 25 题 · 占 25%</div>
+        <ul>
+          <li>选择题、填空题</li>
+          <li>日常对话与独白</li>
+          <li>抓取关键信息</li>
+          <li>理解态度与观点</li>
+        </ul>
+      </div>
+      <div class="exam-card">
+        <h3>🗣️ 口语 (Speaking)</h3>
+        <div class="meta">12 分钟 · 4 部分 · 占 25%</div>
+        <ul>
+          <li>自我介绍与问答</li>
+          <li>图片描述</li>
+          <li>与同伴讨论</li>
+          <li>表达观点与偏好</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background: white;">
+  <div class="container">
+    <h2 class="section-title">四阶段备考路线图</h2>
+    <p class="section-desc">建议提前 6-8 个月开始系统准备，循序渐进</p>
+    <div class="timeline">
+      <div class="timeline-item">
+        <span class="phase">第 1 阶段 · 第 1-2 月</span>
+        <h3>基础巩固：词汇与语法</h3>
+        <p>系统背诵 PET 核心词汇（约 1500 词），每天 15-20 个新词。复习基础语法：时态（一般现在、过去、将来、现在完成）、被动语态、条件句（第一、第二类）、比较级等。</p>
+      </div>
+      <div class="timeline-item">
+        <span class="phase">第 2 阶段 · 第 3-4 月</span>
+        <h3>技能训练：听说读写分项突破</h3>
+        <p>每天阅读 1-2 篇短文并做理解题，每周写 2 篇作文并对照范文修改。每天听 15-20 分钟英语音频（BBC Learning English、绘本有声书）。每周进行 1-2 次口语模拟练习。</p>
+      </div>
+      <div class="timeline-item">
+        <span class="phase">第 3 阶段 · 第 5-6 月</span>
+        <h3>真题实战：模拟与查漏补缺</h3>
+        <p>每周完成 1 套完整的 PET 真题，严格计时。分析错题，建立错题本。针对薄弱环节重点强化训练。口语部分可以与同学或老师组队练习。</p>
+      </div>
+      <div class="timeline-item">
+        <span class="phase">第 4 阶段 · 考前 2-4 周</span>
+        <h3>冲刺调整：心态与状态</h3>
+        <p>减少新内容学习，以复习错题和重点词汇为主。保持每周 1-2 套模拟题保持手感。调整作息，保证充足睡眠，熟悉考试流程和考场规则。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">参考周计划表</h2>
+    <p class="section-desc">每天 30-45 分钟，均衡安排听说读写</p>
+    <div style="overflow-x: auto;">
+      <table class="schedule-table">
+        <thead>
+          <tr>
+            <th>星期</th>
+            <th>学习内容</th>
+            <th>类型</th>
+            <th>建议时长</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="day">周一</td>
+            <td>背诵新词汇 + 复习旧词，朗读课文 1 篇</td>
+            <td><span class="tag tag-vocab">词汇</span> <span class="tag tag-read">阅读</span></td>
+            <td>35 分钟</td>
+          </tr>
+          <tr>
+            <td class="day">周二</td>
+            <td>听力训练：真题听力 + 跟读模仿</td>
+            <td><span class="tag tag-listen">听力</span> <span class="tag tag-speak">口语</span></td>
+            <td>30 分钟</td>
+          </tr>
+          <tr>
+            <td class="day">周三</td>
+            <td>阅读训练：1 篇阅读理解 + 生词整理</td>
+            <td><span class="tag tag-read">阅读</span> <span class="tag tag-vocab">词汇</span></td>
+            <td>35 分钟</td>
+          </tr>
+          <tr>
+            <td class="day">周四</td>
+            <td>写作训练：1 篇短文写作 + 对照范文修改</td>
+            <td><span class="tag tag-write">写作</span></td>
+            <td>40 分钟</td>
+          </tr>
+          <tr>
+            <td class="day">周五</td>
+            <td>口语练习：自我介绍 + 图片描述 + 话题讨论</td>
+            <td><span class="tag tag-speak">口语</span></td>
+            <td>30 分钟</td>
+          </tr>
+          <tr>
+            <td class="day">周六</td>
+            <td>综合复习：错题回顾 + 薄弱环节专项练习</td>
+            <td><span class="tag tag-read">阅读</span> <span class="tag tag-write">写作</span></td>
+            <td>45 分钟</td>
+          </tr>
+          <tr>
+            <td class="day">周日</td>
+            <td>轻松学习：看英文动画/绘本，或休息</td>
+            <td><span class="tag tag-rest">休息</span></td>
+            <td>20 分钟</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background: white;">
+  <div class="container">
+    <h2 class="section-title">实用学习建议</h2>
+    <p class="section-desc">来自高分考生的经验总结</p>
+    <div class="tips-grid">
+      <div class="tip-card">
+        <div class="num">1</div>
+        <h3>词汇是基础中的基础</h3>
+        <p>坚持每天背单词，结合例句记忆，比孤立记单词效率高得多。推荐使用 Anki 或 Quizlet 等间隔重复记忆工具。</p>
+      </div>
+      <div class="tip-card">
+        <div class="num">2</div>
+        <h3>听力要"精听+泛听"结合</h3>
+        <p>精听：逐句听写真题录音；泛听：利用碎片时间听英语故事、歌曲、播客，培养语感。</p>
+      </div>
+      <div class="tip-card">
+        <div class="num">3</div>
+        <h3>写作不要怕犯错</h3>
+        <p>先求写得出、写得够，再求写得好。写完后一定要对照范文，学习地道的表达方式和文章结构。</p>
+      </div>
+      <div class="tip-card">
+        <div class="num">4</div>
+        <h3>口语要大胆开口</h3>
+        <p>找不到语伴时，可以自己录音然后回听，找出发音和语法问题。描述图片、讲故事都是很好的练习方式。</p>
+      </div>
+      <div class="tip-card">
+        <div class="num">5</div>
+        <h3>真题是最好的老师</h3>
+        <p>至少完成 6-8 套完整真题。每套题做完后花同样的时间来分析，弄清楚每道错题的原因。</p>
+      </div>
+      <div class="tip-card">
+        <div class="num">6</div>
+        <h3>保持兴趣不 burnout</h3>
+        <p>把英语融入生活：看英文动画片、读英文漫画、玩英文游戏。兴趣是最好的驱动力，不要让备考变成负担。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">常见问题</h2>
+    <p class="section-desc">家长和同学们最关心的问题</p>
+    <div class="faq-item open">
+      <div class="faq-q">
+        小学生考 PET 难度大吗？
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">PET 是 B1 水平，相当于国内高中英语程度，对小学生来说确实有挑战。但很多孩子从幼儿园就开始接触英语，如果已经通过了 KET 或者有 2-3 年系统学习基础，在家长和老师的引导下完全可以应对。关键是提前规划、循序渐进，不要急于求成。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">
+        需要报培训班吗？
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">不是必需的。如果家长英语水平较好，可以自己辅导，配合真题和网络资源自学也是可行的。但如果孩子在口语或写作方面比较薄弱，找个有经验的老师针对性地指导几节课会更有帮助。选择培训班时注意老师的 PET 辅导经验。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">
+        推荐哪些备考资料？
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">首选 Cambridge 官方出版的真题集（如 PET Practice Tests），以及 Complete PET、Compact PET 等官方教材。词汇方面可以用《PET 核心词汇》。听力可以搭配 BBC Learning English 网站和每日英语听力 App。阅读推荐 Oxford Reading Tree 高阶系列或简单的英文原版章节书。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">
+        每天要花多长时间准备？
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">建议每天保持 30-45 分钟的英语学习时间。如果距离考试还有 6 个月以上，前期可以稍微轻松一些，每天 30 分钟即可；考前 2-3 个月可以适当增加到 45-60 分钟。关键是坚持每天练习，而不是偶尔突击。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">
+        PET 和 KET 有什么区别？
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">KET (A2) 是剑桥英语入门级，词汇量约 800-1200，适合小学中年级；PET (B1) 是中等级别，词汇量约 1500-2000，难度明显提升。PET 的阅读文章更长、话题更广，写作要求也更高（需写出 100 词左右的完整文章）。一般来说，建议先通过 KET 再备考 PET，这样过渡更自然。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">
+        考试没有通过怎么办？
+        <span class="arrow">▼</span>
+      </div>
+      <div class="faq-a">PET 考试成绩终身有效，没有通过可以随时再考。考完后会收到成绩单，显示各项分数，可以帮助定位薄弱环节。重要的是从中总结经验，调整学习方法再战。很多孩子第二次考试会有明显进步。</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>本页面仅供参考，具体考试信息请以 Cambridge Assessment English 官方发布为准</p>
+</footer>
+
+<script>
+(function() {
+  var faqQs = document.querySelectorAll('.faq-q');
+  for (var i = 0; i < faqQs.length; i++) {
+    faqQs[i].addEventListener('click', function() {
+      this.parentElement.classList.toggle('open');
+    });
+  }
+})();
+</script>
+
+</body>
+</html>

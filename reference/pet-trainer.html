@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>PET 词汇特训</title>
+<style>
+:root { color-scheme: light; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #FFF8F0; color: #2D3436; min-height: 100vh;
+  display: flex; justify-content: center; align-items: center;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; -webkit-user-select: none;
+}
+#app { width: 100%; max-width: 480px; min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ===== DASHBOARD ===== */
+.dashboard { padding: 32px 24px; text-align: center; flex: 1; display: flex; flex-direction: column; }
+.dashboard .logo { font-size: 3rem; margin-bottom: 4px; }
+.dashboard h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 2px; color: #2D3436; }
+.dashboard .subtitle { font-size: 0.8rem; color: #636E72; margin-bottom: 20px; }
+.stat-cards { display: flex; gap: 10px; margin-bottom: 16px; }
+.stat-card { flex: 1; background: white; border-radius: 14px; padding: 14px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.stat-card .num { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+.stat-card .num.words { color: #4ECDC4; }
+.stat-card .num.days { color: #FFD93D; }
+.stat-card .num.points { color: #A855F7; }
+.stat-card .label { font-size: 0.7rem; color: #636E72; margin-top: 4px; }
+
+/* Pet area */
+.pet-box {
+  background: linear-gradient(135deg, #F3E8FF, #EDE9FE);
+  border-radius: 16px; padding: 16px; margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04); position: relative; overflow: hidden;
+}
+.pet-emoji { font-size: 3.5rem; transition: transform 0.3s; cursor: pointer; line-height: 1; }
+.pet-emoji:active { transform: scale(1.2); }
+.pet-emoji:hover { animation: petBounce 0.5s; }
+@keyframes petBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+.pet-name { font-size: 0.9rem; font-weight: 700; color: #6D28D9; margin: 4px 0; }
+.pet-level-bar { height: 10px; background: #DDD6FE; border-radius: 5px; margin: 8px 0; overflow: hidden; }
+.pet-level-fill { height: 100%; background: linear-gradient(90deg, #A855F7, #7C3AED); border-radius: 5px; transition: width 0.5s; }
+.pet-info { font-size: 0.72rem; color: #7C3AED; display: flex; justify-content: space-between; }
+.pet-graduated { color: #F59E0B; font-weight: 700; font-size: 0.85rem; }
+.pet-points-earned { font-size: 0.78rem; color: #10B981; font-weight: 600; animation: fadeUp 1s ease-out; }
+@keyframes fadeUp { 0%{opacity:0;transform:translateY(8px)} 100%{opacity:1;transform:translateY(0)} }
+
+.status-badge {
+  display: inline-block; padding: 6px 16px; border-radius: 100px;
+  font-size: 0.8rem; font-weight: 600; margin-bottom: 14px;
+}
+.status-badge.done { background: #D3F9D8; color: #2B8A3E; }
+.status-badge.progress { background: #FFF3BF; color: #E67700; }
+.status-badge.ready { background: #E9ECEF; color: #495057; }
+
+.dash-btns { display: flex; flex-direction: column; gap: 10px; }
+.btn-start {
+  display: block; width: 100%; padding: 16px; border: none; border-radius: 14px;
+  background: linear-gradient(135deg, #FF6B6B, #FF8787);
+  color: white; font-size: 1.1rem; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(255,107,107,0.3);
+  transition: transform 0.15s;
+}
+.btn-start:active { transform: scale(0.97); }
+.btn-secondary {
+  display: block; width: 100%; padding: 14px; border: 2px solid #E9ECEF; border-radius: 14px;
+  background: white; color: #495057; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+}
+.btn-secondary:active { background: #F8F9FA; }
+
+/* ===== FLASHCARD ===== */
+.flashcard-view { padding: 20px; flex: 1; display: flex; flex-direction: column; }
+.flashcard-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.btn-back {
+  width: 40px; height: 40px; border-radius: 12px; border: none;
+  background: white; color: #636E72; font-size: 1.2rem; cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08); display: flex; align-items: center; justify-content: center;
+}
+.progress-bar { flex: 1; height: 8px; background: #E9ECEF; border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; background: #FF6B6B; border-radius: 4px; transition: width 0.3s; }
+.progress-label { font-size: 0.8rem; color: #636E72; min-width: 48px; text-align: right; }
+.flashcard-stage { flex: 1; display: flex; align-items: center; justify-content: center; }
+.card-wrap { width: 100%; max-width: 360px; perspective: 1000px; }
+.card-inner { position: relative; width: 100%; aspect-ratio: 4/3; transition: transform 0.5s cubic-bezier(0.4,0,0.2,1); transform-style: preserve-3d; }
+.card-inner.flipped { transform: rotateY(180deg); }
+.card-face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
+.card-front { background: white; cursor: pointer; }
+.card-front .word { font-size: 2.2rem; font-weight: 800; color: #2D3436; margin-bottom: 12px; }
+.card-front .tap-hint { font-size: 0.8rem; color: #ADB5BD; }
+.card-front .speaker { width: 48px; height: 48px; border-radius: 50%; background: #FFF0F0; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin-bottom: 16px; cursor: pointer; }
+.card-back { background: linear-gradient(135deg, #FFF0F0, #FFF8F0); transform: rotateY(180deg); text-align: center; }
+.card-back .meaning { font-size: 1.6rem; font-weight: 700; color: #FF6B6B; margin-bottom: 12px; }
+.card-back .example { font-size: 0.95rem; color: #495057; margin-bottom: 6px; line-height: 1.6; }
+.card-back .example-cn { font-size: 0.85rem; color: #868E96; }
+.card-back .example-speaker { margin-top: 12px; font-size: 0.8rem; color: #FF6B6B; cursor: pointer; padding: 6px 16px; border-radius: 100px; background: white; }
+.btn-next-wrap { margin-top: 16px; text-align: center; }
+.btn-next { width: 100%; padding: 16px; border: none; border-radius: 14px; background: #FF6B6B; color: white; font-size: 1.05rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(255,107,107,0.3); }
+.btn-next:active { transform: scale(0.97); }
+.btn-next:disabled { background: #CED4DA; box-shadow: none; cursor: not-allowed; }
+
+/* ===== QUIZ ===== */
+.quiz-view { padding: 20px; flex: 1; display: flex; flex-direction: column; }
+.quiz-header { text-align: center; margin-bottom: 8px; }
+.quiz-header .quiz-type { font-size: 0.85rem; color: #FF6B6B; font-weight: 600; }
+.quiz-question { text-align: center; margin: 16px 0; }
+.quiz-question .question-word { font-size: 1.8rem; font-weight: 800; color: #2D3436; margin-bottom: 8px; }
+.quiz-question .question-hint { font-size: 0.85rem; color: #636E72; }
+.quiz-question .speaker-btn { width: 60px; height: 60px; border-radius: 50%; background: #FFF0F0; border: none; font-size: 1.8rem; cursor: pointer; margin: 8px auto; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(255,107,107,0.2); }
+.quiz-question .speaker-btn:active { transform: scale(0.9); }
+.quiz-question .speaker-btn.playing { background: #FF6B6B; color: white; animation: pulse 0.8s infinite; }
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.quiz-options { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; flex: 1; justify-content: center; }
+.quiz-option { padding: 16px 20px; border-radius: 14px; border: 2.5px solid #E9ECEF; background: white; font-size: 1.05rem; cursor: pointer; text-align: center; transition: all 0.15s; font-weight: 500; }
+.quiz-option:active { transform: scale(0.98); }
+.quiz-option.correct { border-color: #51CF66; background: #D3F9D8; color: #2B8A3E; }
+.quiz-option.wrong { border-color: #FF6B6B; background: #FFF0F0; color: #E03131; }
+.quiz-option.show-correct { border-color: #51CF66; background: #D3F9D8; color: #2B8A3E; }
+.quiz-option.disabled { pointer-events: none; }
+
+/* ===== SPELLING ===== */
+.spell-view { padding: 20px; flex: 1; display: flex; flex-direction: column; }
+.spell-question { text-align: center; margin: 12px 0; flex: 1; }
+.spell-question .meaning-big { font-size: 1.5rem; font-weight: 700; color: #FF6B6B; margin-bottom: 8px; }
+.spell-question .example-with-blank { font-size: 1.05rem; color: #495057; margin-bottom: 8px; line-height: 1.7; }
+.spell-question .example-cn-small { font-size: 0.85rem; color: #868E96; margin-bottom: 16px; }
+.spell-question .blank { color: #FF6B6B; font-weight: 700; letter-spacing: 3px; }
+.spell-question .speaker-btn { width: 52px; height: 52px; border-radius: 50%; background: #FFF0F0; border: none; font-size: 1.5rem; cursor: pointer; margin: 8px auto 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(255,107,107,0.2); }
+.spell-input-wrap { margin-top: 8px; position: relative; }
+.spell-input { width: 100%; padding: 16px 56px 16px 16px; border-radius: 14px; border: 2.5px solid #E9ECEF; font-size: 1.3rem; text-align: center; outline: none; letter-spacing: 2px; transition: border-color 0.15s; }
+.spell-input:focus { border-color: #FF6B6B; }
+.spell-mic { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; border: none; background: #F0F0FF; color: #6C5CE7; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.spell-mic:active { transform: translateY(-50%) scale(0.9); }
+.spell-mic.listening { background: #FF6B6B; color: white; animation: micPulse 1s infinite; }
+@keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,107,107,0.5); } 50% { box-shadow: 0 0 0 14px rgba(255,107,107,0); } }
+.spell-mic.hidden { display: none; }
+.spell-hint { font-size: 0.85rem; color: #FF6B6B; margin-top: 8px; min-height: 20px; }
+.btn-submit { width: 100%; padding: 16px; border: none; border-radius: 14px; background: #FF6B6B; color: white; font-size: 1.05rem; font-weight: 700; cursor: pointer; margin-top: 12px; }
+.btn-submit:active { transform: scale(0.97); }
+.btn-submit:disabled { background: #CED4DA; cursor: not-allowed; }
+.spell-feedback { text-align: center; font-size: 1rem; font-weight: 600; margin-top: 8px; min-height: 28px; }
+
+/* ===== COMPLETE ===== */
+.complete-view { padding: 32px 24px; text-align: center; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.complete-view .emoji { font-size: 4rem; margin-bottom: 12px; }
+.complete-view h2 { font-size: 1.4rem; margin-bottom: 6px; }
+.complete-view .message { font-size: 0.95rem; color: #495057; margin-bottom: 20px; line-height: 1.6; }
+.complete-stats { display: flex; gap: 10px; margin-bottom: 16px; }
+.complete-stat { flex: 1; background: white; border-radius: 14px; padding: 14px 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.complete-stat .val { font-size: 1.4rem; font-weight: 800; }
+.complete-stat .val.green { color: #51CF66; }
+.complete-stat .val.yellow { color: #FFD93D; }
+.complete-stat .val.purple { color: #A855F7; }
+.complete-stat .lbl { font-size: 0.68rem; color: #636E72; margin-top: 4px; }
+.btn-done { display: block; width: 100%; padding: 14px; border: none; border-radius: 14px; background: #51CF66; color: white; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
+.btn-extra { display: block; width: 100%; padding: 14px; border: none; border-radius: 14px; background: linear-gradient(135deg, #A855F7, #7C3AED); color: white; font-size: 1rem; font-weight: 700; cursor: pointer; margin-bottom: 10px; box-shadow: 0 4px 14px rgba(168,85,247,0.3); }
+.btn-extra:active { transform: scale(0.97); }
+
+/* ===== WRONG BOOK ===== */
+.wrongbook-view { padding: 24px 20px; flex: 1; display: flex; flex-direction: column; }
+.wrongbook-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.wrongbook-header h2 { font-size: 1.2rem; flex: 1; text-align: center; }
+.wrongbook-empty { text-align: center; padding: 40px 20px; color: #868E96; }
+.wrongbook-empty .icon { font-size: 3rem; margin-bottom: 12px; }
+.wrongbook-list { flex: 1; overflow-y: auto; }
+.wrongbook-item { background: white; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; }
+.wrongbook-item .wrong-word { font-size: 1.1rem; font-weight: 700; color: #2D3436; }
+.wrongbook-item .wrong-meaning { font-size: 0.85rem; color: #636E72; }
+.wrongbook-item .wrong-count { background: #FF6B6B; color: white; border-radius: 100px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600; }
+.wrongbook-item .btn-retry { padding: 8px 14px; border: none; border-radius: 10px; background: #FFF0F0; color: #FF6B6B; font-weight: 600; font-size: 0.8rem; cursor: pointer; }
+.wrongbook-stats { text-align: center; font-size: 0.85rem; color: #636E72; margin-bottom: 14px; }
+
+/* Retry quiz inline */
+.retry-quiz { background: #FFF5F5; border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+.retry-quiz .quiz-type { font-size: 0.8rem; color: #FF6B6B; font-weight: 600; margin-bottom: 8px; }
+.retry-quiz .quiz-options { gap: 8px; }
+
+/* Pet upgrade animation */
+@keyframes levelUp {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3) rotate(10deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+.level-up { animation: levelUp 0.6s ease-out; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 360px) {
+  .card-front .word { font-size: 1.8rem; }
+  .card-back .meaning { font-size: 1.3rem; }
+  .quiz-option { padding: 14px 16px; font-size: 0.95rem; }
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.pop { animation: popIn 0.3s ease-out; }
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%,60% { transform: translateX(-6px); }
+  40%,80% { transform: translateX(6px); }
+}
+.shake { animation: shake 0.4s ease-out; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ============================================================
+// WORD BANK — 200 PET core words, 10 topics, 20 per topic
+// ============================================================
+const TOPICS = [
+  '🍕 食物与饮料', '👨‍👩‍👧‍👦 家庭与朋友', '📚 学校与教育', '⚽ 运动与爱好',
+  '✈️ 旅行与交通', '🌤️ 天气与自然', '🏥 健康与身体', '🛒 购物与金钱',
+  '🐘 动物与宠物', '🏠 日常生活'
+];
+
+const WORD_BANK = [
+  ['restaurant','餐馆','We had dinner at a nice restaurant.','我们在一家不错的餐馆吃了晚餐。',0],
+  ['delicious','美味的','This cake is really delicious!','这个蛋糕真的很好吃！',0],
+  ['breakfast','早餐','I always eat breakfast before school.','我上学前总是吃早餐。',0],
+  ['vegetable','蔬菜','You should eat more vegetables.','你应该多吃蔬菜。',0],
+  ['chocolate','巧克力','My mother gave me some chocolate.','我妈妈给了我一些巧克力。',0],
+  ['sandwich','三明治','I made a sandwich for lunch.','我午餐做了一个三明治。',0],
+  ['biscuit','饼干','Would you like a biscuit with your tea?','你想喝茶时配块饼干吗？',0],
+  ['menu','菜单','Let me look at the menu first.','让我先看看菜单。',0],
+  ['thirsty','口渴的','I am very thirsty after running.','跑步后我很口渴。',0],
+  ['hungry','饥饿的','The children are hungry after school.','孩子们放学后很饿。',0],
+  ['refrigerator','冰箱','Put the milk in the refrigerator.','把牛奶放进冰箱。',0],
+  ['sugar','糖','I dont put sugar in my coffee.','我咖啡里不放糖。',0],
+  ['fresh','新鲜的','I like fresh fruit in the morning.','我喜欢早上吃新鲜水果。',0],
+  ['recipe','食谱','My grandmother gave me this recipe.','我奶奶给了我这个食谱。',0],
+  ['waiter','服务员','The waiter brought us the food.','服务员给我们端来了食物。',0],
+  ['dinner','晚餐','We are having dinner at seven.','我们七点吃晚餐。',0],
+  ['lunch','午餐','What did you eat for lunch today?','你今天午餐吃了什么？',0],
+  ['fruit','水果','An apple is my favourite fruit.','苹果是我最喜欢的水果。',0],
+  ['burger','汉堡','Can I have a burger please?','请问我能要一个汉堡吗？',0],
+  ['boil','煮沸','Boil the water before making tea.','泡茶前先把水烧开。',0],
+  ['relative','亲戚','A relative is coming to visit us.','一个亲戚要来看我们。',1],
+  ['nephew','侄子','My nephew is five years old.','我的侄子五岁了。',1],
+  ['niece','侄女','His niece loves dancing.','他的侄女喜欢跳舞。',1],
+  ['cousin','堂兄弟姐妹','My cousin lives in another city.','我的堂兄住在另一个城市。',1],
+  ['married','已婚的','My sister got married last year.','我姐姐去年结婚了。',1],
+  ['single','单身的','He is still single and lives alone.','他还是单身，一个人住。',1],
+  ['celebrate','庆祝','We celebrate birthdays with a big cake.','我们用大蛋糕庆祝生日。',1],
+  ['birthday','生日','When is your birthday?','你的生日是什么时候？',1],
+  ['invite','邀请','I want to invite my friends to the party.','我想邀请朋友来参加聚会。',1],
+  ['guest','客人','We have guests coming for dinner tonight.','今晚有客人来吃晚餐。',1],
+  ['neighbour','邻居','Our neighbour has a friendly dog.','我们的邻居有一只友好的狗。',1],
+  ['relationship','关系','They have a good relationship.','他们的关系很好。',1],
+  ['generous','慷慨的','She is very generous with her time.','她非常慷慨地付出时间。',1],
+  ['patient','耐心的','Teachers need to be very patient.','老师需要非常有耐心。',1],
+  ['polite','礼貌的','It is polite to say thank you.','说谢谢是有礼貌的。',1],
+  ['respect','尊重','We should respect older people.','我们应该尊重年长的人。',1],
+  ['friendly','友好的','The people here are very friendly.','这里的人非常友好。',1],
+  ['together','一起','Lets do this together.','让我们一起做这件事。',1],
+  ['honest','诚实的','An honest person always tells the truth.','诚实的人总是说真话。',1],
+  ['support','支持','My family always supports me.','我的家人总是支持我。',1],
+  ['subject','科目','Maths is my favourite subject.','数学是我最喜欢的科目。',2],
+  ['homework','家庭作业','I have a lot of homework tonight.','我今晚有很多家庭作业。',2],
+  ['examination','考试','The final examination is next week.','期末考试在下周。',2],
+  ['library','图书馆','I study in the library after school.','放学后我在图书馆学习。',2],
+  ['laboratory','实验室','We did an experiment in the laboratory.','我们在实验室做了一个实验。',2],
+  ['explain','解释','Can you explain this to me?','你能给我解释一下这个吗？',2],
+  ['describe','描述','Describe your best friend to me.','向我描述一下你最好的朋友。',2],
+  ['discuss','讨论','Lets discuss the problem together.','让我们一起讨论这个问题。',2],
+  ['notebook','笔记本','I wrote the notes in my notebook.','我把笔记写在了笔记本上。',2],
+  ['dictionary','词典','Look up the word in the dictionary.','在词典里查一下这个词。',2],
+  ['geography','地理','We are learning about mountains in geography.','我们在地理课学习山脉。',2],
+  ['history','历史','I enjoy reading about history.','我喜欢读历史。',2],
+  ['science','科学','Science tells us how things work.','科学告诉我们事物如何运作。',2],
+  ['language','语言','Learning a new language is exciting.','学习一门新语言很令人兴奋。',2],
+  ['equipment','设备','The school bought new sports equipment.','学校买了新的体育设备。',2],
+  ['timetable','课程表','Check your timetable for tomorrow.','查看你明天的课程表。',2],
+  ['result','结果','I got good results in my tests.','我考试取得了好成绩。',2],
+  ['organise','组织','She helped organise the school event.','她帮忙组织了学校活动。',2],
+  ['professor','教授','The professor gave an interesting lecture.','教授做了一场有趣的讲座。',2],
+  ['diploma','文凭','He received his diploma at the ceremony.','他在典礼上拿到了文凭。',2],
+  ['exercise','锻炼','Regular exercise keeps you healthy.','经常锻炼让你保持健康。',3],
+  ['competition','比赛','She won first prize in the competition.','她在比赛中获得了一等奖。',3],
+  ['champion','冠军','He became the world champion.','他成为了世界冠军。',3],
+  ['stadium','体育场','The football match is at the stadium.','足球比赛在体育场举行。',3],
+  ['volleyball','排球','We play volleyball on the beach.','我们在沙滩上打排球。',3],
+  ['tennis','网球','Do you want to play tennis with me?','你想和我打网球吗？',3],
+  ['swimming','游泳','Swimming is good exercise for everyone.','游泳对每个人都是很好的锻炼。',3],
+  ['skiing','滑雪','We go skiing every winter.','我们每年冬天都去滑雪。',3],
+  ['cycling','骑自行车','Cycling to school keeps me fit.','骑自行车上学让我保持健康。',3],
+  ['guitar','吉他','He can play the guitar very well.','他吉他弹得很好。',3],
+  ['piano','钢琴','She practises the piano every day.','她每天练习钢琴。',3],
+  ['painting','绘画','I enjoy painting in my free time.','我空闲时间喜欢绘画。',3],
+  ['photograph','照片','I took a photograph of the sunset.','我拍了一张日落的照片。',3],
+  ['collect','收集','I collect stamps from different countries.','我收集不同国家的邮票。',3],
+  ['practise','练习','You need to practise to get better.','你需要练习才能变得更好。',3],
+  ['relaxing','令人放松的','Reading a book is very relaxing.','读书非常令人放松。',3],
+  ['exciting','令人兴奋的','The football game was very exciting!','足球比赛非常令人兴奋！',3],
+  ['dangerous','危险的','Skating on thin ice is dangerous.','在薄冰上滑冰很危险。',3],
+  ['popular','流行的','This game is very popular among kids.','这个游戏在孩子们中很流行。',3],
+  ['favourite','最喜欢的','Blue is my favourite colour.','蓝色是我最喜欢的颜色。',3],
+  ['airport','机场','We arrived at the airport early.','我们很早就到了机场。',4],
+  ['passenger','乘客','The passenger waited for the train.','乘客在等火车。',4],
+  ['luggage','行李','I packed my luggage last night.','我昨晚收拾了行李。',4],
+  ['suitcase','行李箱','My suitcase is very heavy.','我的行李箱很重。',4],
+  ['platform','站台','The train is waiting at platform three.','火车在三号站台等候。',4],
+  ['departure','出发','The departure time is ten oclock.','出发时间是十点钟。',4],
+  ['arrival','到达','What is your arrival time?','你的到达时间是几点？',4],
+  ['destination','目的地','Our destination is London.','我们的目的地是伦敦。',4],
+  ['abroad','国外','I want to study abroad one day.','我想有一天去国外学习。',4],
+  ['tourist','游客','Many tourists visit the museum.','许多游客参观博物馆。',4],
+  ['hotel','酒店','We stayed at a nice hotel.','我们住在一家不错的酒店。',4],
+  ['reservation','预订','I made a reservation for dinner.','我预订了晚餐。',4],
+  ['underground','地铁','The underground is the fastest way.','地铁是最快的方式。',4],
+  ['bicycle','自行车','I ride my bicycle to school.','我骑自行车上学。',4],
+  ['motorcycle','摩托车','He drives a red motorcycle.','他骑一辆红色摩托车。',4],
+  ['railway','铁路','The railway station is very busy.','火车站非常繁忙。',4],
+  ['ticket','票','I need to buy a train ticket.','我需要买一张火车票。',4],
+  ['passport','护照','Dont forget your passport!','别忘了你的护照！',4],
+  ['guidebook','旅行指南','The guidebook has useful maps.','旅行指南里有有用的地图。',4],
+  ['highway','高速公路','We drove on the highway for hours.','我们在高速公路上开了几个小时。',4],
+  ['temperature','温度','The temperature is very high today.','今天温度很高。',5],
+  ['forecast','预报','The weather forecast says it will rain.','天气预报说要下雨。',5],
+  ['thunderstorm','雷暴','A thunderstorm is coming this evening.','今晚有雷暴要来。',5],
+  ['umbrella','雨伞','Take an umbrella it might rain.','带把雨伞，可能会下雨。',5],
+  ['freezing','极冷的','It is freezing outside today.','今天外面冷极了。',5],
+  ['climate','气候','The climate here is warm and wet.','这里的气候温暖潮湿。',5],
+  ['environment','环境','We must protect the environment.','我们必须保护环境。',5],
+  ['pollution','污染','Air pollution is a big problem.','空气污染是一个大问题。',5],
+  ['earthquake','地震','The earthquake shook the buildings.','地震震动了建筑物。',5],
+  ['mountain','山','We climbed a high mountain.','我们爬了一座高山。',5],
+  ['forest','森林','Many animals live in the forest.','许多动物生活在森林里。',5],
+  ['island','岛屿','They live on a small island.','他们住在一个小岛上。',5],
+  ['desert','沙漠','The desert is very dry and hot.','沙漠非常干燥炎热。',5],
+  ['ocean','海洋','The ocean is deep and blue.','海洋又深又蓝。',5],
+  ['countryside','乡村','I love walking in the countryside.','我喜欢在乡村散步。',5],
+  ['wildlife','野生动物','We saw a lot of wildlife in the park.','我们在公园里看到了很多野生动物。',5],
+  ['planet','行星','Earth is our beautiful planet.','地球是我们美丽的行星。',5],
+  ['lightning','闪电','Lightning lit up the dark sky.','闪电照亮了黑暗的天空。',5],
+  ['waterfall','瀑布','The waterfall is very beautiful.','瀑布非常美丽。',5],
+  ['boiling','极热的','The sun is boiling hot today.','今天太阳热得发烫。',5],
+  ['medicine','药','You need to take this medicine.','你需要吃这个药。',6],
+  ['hospital','医院','She was taken to the hospital.','她被送到了医院。',6],
+  ['patient','病人','The patient is feeling better now.','病人现在感觉好多了。',6],
+  ['dentist','牙医','I have an appointment with the dentist.','我和牙医有个预约。',6],
+  ['ambulance','救护车','Call an ambulance quickly!','快叫救护车！',6],
+  ['appointment','预约','I have a doctors appointment at three.','我三点有个医生预约。',6],
+  ['headache','头痛','I have a bad headache today.','我今天头痛得厉害。',6],
+  ['stomach','胃','My stomach hurts after eating too much.','吃太多后我胃痛。',6],
+  ['shoulder','肩膀','He hurt his shoulder playing tennis.','他打网球伤了肩膀。',6],
+  ['knee','膝盖','My knee hurts when I walk.','我走路时膝盖疼。',6],
+  ['fever','发烧','She has a fever and needs rest.','她发烧了，需要休息。',6],
+  ['disease','疾病','Washing hands helps prevent disease.','洗手有助于预防疾病。',6],
+  ['healthy','健康的','Eating vegetables keeps you healthy.','吃蔬菜让你保持健康。',6],
+  ['cigarette','香烟','Smoking cigarettes is bad for you.','吸烟对你不好。',6],
+  ['treatment','治疗','He is receiving treatment at the hospital.','他正在医院接受治疗。',6],
+  ['operation','手术','The operation went very well.','手术进行得很顺利。',6],
+  ['emergency','紧急情况','In an emergency call one one nine.','紧急情况拨打一一九。',6],
+  ['alcohol','酒精','There is no alcohol in this drink.','这个饮料里没有酒精。',6],
+  ['pill','药片','Take one pill after meals.','饭后吃一片药。',6],
+  ['muscle','肌肉','Running helps build strong muscles.','跑步有助于练就强壮的肌肉。',6],
+  ['customer','顾客','The customer is always right.','顾客永远是对的。',7],
+  ['receipt','收据','Keep your receipt for a refund.','保留收据以便退款。',7],
+  ['discount','折扣','There is a big discount this week.','本周有大折扣。',7],
+  ['bargain','便宜货','This dress was a real bargain.','这条裙子真是便宜。',7],
+  ['expensive','昂贵的','That watch is too expensive.','那块表太贵了。',7],
+  ['cheap','便宜的','This bag is cheap but good quality.','这个包便宜但质量好。',7],
+  ['wallet','钱包','I lost my wallet on the bus.','我在公交车上丢了钱包。',7],
+  ['purse','女士钱包','She put the money in her purse.','她把钱放进了钱包。',7],
+  ['cash','现金','Do you want to pay in cash?','你想用现金支付吗？',7],
+  ['credit','信用','You can pay by credit card.','你可以用信用卡支付。',7],
+  ['online','在线','I bought it online last week.','我上周在网上买的。',7],
+  ['delivery','送货','The delivery will arrive tomorrow.','送货明天到达。',7],
+  ['exchange','交换','Can I exchange this for a larger size?','我能把这个换成大一号的吗？',7],
+  ['size','尺码','What size shoes do you wear?','你穿多大码的鞋？',7],
+  ['medium','中号','I would like a medium coffee please.','请给我一杯中杯咖啡。',7],
+  ['fashion','时尚','She loves reading fashion magazines.','她喜欢看时尚杂志。',7],
+  ['brand','品牌','What brand of shoes do you like?','你喜欢什么品牌的鞋？',7],
+  ['supermarket','超市','We go to the supermarket every Saturday.','我们每周六去超市。',7],
+  ['grocery','食品杂货','I need to buy some groceries.','我需要买一些食品杂货。',7],
+  ['refund','退款','They gave me a full refund.','他们给我全额退款了。',7],
+  ['elephant','大象','The elephant is the largest land animal.','大象是最大的陆地动物。',8],
+  ['giraffe','长颈鹿','A giraffe has a very long neck.','长颈鹿有很长的脖子。',8],
+  ['dolphin','海豚','Dolphins are very intelligent animals.','海豚是非常聪明的动物。',8],
+  ['penguin','企鹅','Penguins cannot fly but they can swim.','企鹅不会飞但会游泳。',8],
+  ['butterfly','蝴蝶','A beautiful butterfly landed on the flower.','一只美丽的蝴蝶落在花上。',8],
+  ['insect','昆虫','An ant is a very small insect.','蚂蚁是很小的昆虫。',8],
+  ['spider','蜘蛛','There is a spider in the corner.','角落里有一只蜘蛛。',8],
+  ['whale','鲸鱼','A whale is the biggest animal in the ocean.','鲸鱼是海洋中最大的动物。',8],
+  ['shark','鲨鱼','Be careful there are sharks in the water.','小心，水里有鲨鱼。',8],
+  ['eagle','鹰','The eagle flew high in the sky.','鹰在高空飞翔。',8],
+  ['parrot','鹦鹉','The parrot can say a few words.','鹦鹉能说几个词。',8],
+  ['hamster','仓鼠','My sister has a cute hamster.','我妹妹有一只可爱的仓鼠。',8],
+  ['rabbit','兔子','The rabbit has long ears.','兔子有长长的耳朵。',8],
+  ['tortoise','乌龟','A tortoise can live for many years.','乌龟可以活很多年。',8],
+  ['feather','羽毛','The bird has beautiful feathers.','这只鸟有美丽的羽毛。',8],
+  ['tail','尾巴','The dog is wagging its tail.','狗在摇尾巴。',8],
+  ['wing','翅膀','The bird spread its wings and flew away.','鸟展开翅膀飞走了。',8],
+  ['wild','野生的','Lions live in the wild.','狮子生活在野外。',8],
+  ['endangered','濒危的','Pandas are an endangered species.','熊猫是濒危物种。',8],
+  ['furry','毛茸茸的','The puppy is soft and furry.','小狗软软的毛茸茸的。',8],
+  ['routine','日常','My morning routine starts at seven.','我的晨间日常七点开始。',9],
+  ['bathroom','浴室','The bathroom is down the hall.','浴室在走廊尽头。',9],
+  ['shower','淋浴','I take a shower every morning.','我每天早上淋浴。',9],
+  ['mirror','镜子','She looked at herself in the mirror.','她在镜子里看着自己。',9],
+  ['wardrobe','衣柜','I put my clothes in the wardrobe.','我把衣服放进衣柜。',9],
+  ['blanket','毯子','I need an extra blanket tonight.','今晚我需要一条额外的毯子。',9],
+  ['towel','毛巾','Dry your hands with a towel.','用毛巾擦干手。',9],
+  ['furniture','家具','We bought some new furniture.','我们买了一些新家具。',9],
+  ['microwave','微波炉','Heat the food in the microwave.','用微波炉加热食物。',9],
+  ['rubbish','垃圾','Please take out the rubbish.','请把垃圾拿出去。',9],
+  ['garage','车库','We park the car in the garage.','我们把车停在车库里。',9],
+  ['traffic','交通','The traffic is very heavy this morning.','今天早上交通很拥堵。',9],
+  ['community','社区','Our community is very friendly.','我们的社区非常友好。',9],
+  ['volunteer','志愿者','She works as a volunteer at the hospital.','她在医院做志愿者。',9],
+  ['decorate','装饰','Lets decorate the room with balloons.','让我们用气球装饰房间。',9],
+  ['ceremony','典礼','The graduation ceremony was wonderful.','毕业典礼非常精彩。',9],
+  ['traditional','传统的','We had a traditional Chinese dinner.','我们吃了一顿传统的中式晚餐。',9],
+  ['vacuum','吸尘器','I use the vacuum to clean the floor.','我用吸尘器清洁地板。',9],
+  ['message','消息','I left a message on your phone.','我在你手机上留了消息。',9],
+  ['repair','修理','We need to repair the broken door.','我们需要修理坏掉的门。',9],
+];
+
+// ============================================================
+// PET SYSTEM
+// ============================================================
+const PET_STAGES = [
+  { emoji:'🥚', name:'宠物蛋', pts:0 },
+  { emoji:'🐣', name:'小啾啾', pts:50 },
+  { emoji:'🐥', name:'小黄鸡', pts:150 },
+  { emoji:'🐱', name:'小猫咪', pts:300 },
+  { emoji:'🐶', name:'小狗狗', pts:500 },
+  { emoji:'🦊', name:'小狐狸', pts:750 },
+  { emoji:'🐼', name:'小熊猫', pts:1050 },
+  { emoji:'🐯', name:'小老虎', pts:1400 },
+  { emoji:'🐉', name:'小龙龙', pts:1800 },
+  { emoji:'🦄', name:'毕业独角兽', pts:2300 },
+];
+const PTS_CORRECT = 5;
+const PTS_DAY_COMPLETE = 10;
+const PTS_WORD_MASTERED = 3;
+
+function getPetLevel(points) {
+  let lvl = 0;
+  for (let i = PET_STAGES.length-1; i >= 0; i--) {
+    if (points >= PET_STAGES[i].pts) { lvl = i; break; }
+  }
+  return lvl;
+}
+function getPetProgress(points) {
+  const lvl = getPetLevel(points);
+  if (lvl >= PET_STAGES.length-1) return 100;
+  const cur = PET_STAGES[lvl].pts;
+  const nxt = PET_STAGES[lvl+1].pts;
+  return Math.round((points - cur) / (nxt - cur) * 100);
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function today() { return new Date().toISOString().slice(0,10); }
+function shuffle(a) { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b; }
+function pickRandom(arr, n, exclude) { return shuffle(arr.filter(x=>!exclude||!exclude.includes(x))).slice(0,n); }
+
+// ============================================================
+// PERSISTENCE
+// ============================================================
+const STORE_KEY = 'pet_vocab_trainer_v2';
+
+function defaultState() {
+  return {
+    wordBank: WORD_BANK.map((w,i)=>({
+      id:i, word:w[0], meaning:w[1], example:w[2], exampleCn:w[3],
+      topic:w[4], reviewLevel:-1, nextReview:null, learnedDate:null, wrongCount:0
+    })),
+    dailyState: null,
+    history: [],
+    wrongBook: [],     // [{wordId, quizType, date, count}]
+    points: 0,
+    petNotifiedLevel: 0,
+    settings: { dailyNewWords: 10, voiceRate: 0.9 },
+  };
+}
+
+function loadState() {
+  try { const raw=localStorage.getItem(STORE_KEY); if(raw) return JSON.parse(raw); } catch(e){}
+  return defaultState();
+}
+function saveState(state) { try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){} }
+
+// ============================================================
+// SPEECH
+// ============================================================
+function speak(text, rate) {
+  return new Promise((resolve) => {
+    if (!window.speechSynthesis) { resolve(); return; }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang='en-US'; u.rate=rate||0.85;
+    u.onend=resolve; u.onerror=resolve;
+    window.speechSynthesis.speak(u);
+  });
+}
+
+// ============================================================
+// VOICE INPUT — Speech Recognition
+// ============================================================
+let voiceRecognition = null;
+let voiceSilenceTimer = null;
+
+function startVoiceInput(inputId, micId) {
+  const micBtn = document.getElementById(micId);
+  const input = document.getElementById(inputId);
+  if (!micBtn || !input) return;
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    micBtn.classList.add('hidden');
+    input.placeholder = '浏览器不支持语音，请手动输入...';
+    input.focus();
+    return;
+  }
+
+  if (voiceRecognition) {
+    voiceRecognition.stop();
+    return;
+  }
+
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.lang = 'en-US';
+  voiceRecognition.interimResults = true;
+  voiceRecognition.continuous = true;
+  voiceRecognition.maxAlternatives = 1;
+
+  micBtn.classList.add('listening');
+  micBtn.textContent = '⏺️';
+
+  let lastTranscript = '';
+
+  voiceRecognition.onresult = function(event) {
+    clearTimeout(voiceSilenceTimer);
+    let transcript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i][0].confidence > 0.3) {
+        transcript += event.results[i][0].transcript;
+      }
+    }
+    const lettersOnly = transcript.replace(/[^a-zA-Z]/g, '').toLowerCase();
+
+    if (lettersOnly.length > 0 && lettersOnly !== lastTranscript) {
+      lastTranscript = lettersOnly;
+      // Build: existing input + new unique letters
+      const existing = input.value.replace(/[^a-zA-Z]/g, '').toLowerCase();
+      const combined = existing + lettersOnly;
+      // Deduplicate consecutive repeats caused by interim updates
+      input.value = dedupeWord(combined);
+    }
+
+    // Auto-stop after 2 seconds of silence
+    voiceSilenceTimer = setTimeout(() => {
+      if (voiceRecognition) voiceRecognition.stop();
+    }, 2000);
+  };
+
+  voiceRecognition.onerror = function(event) {
+    if (event.error === 'no-speech') {
+      // Restart silently
+      try { voiceRecognition.start(); } catch(e) { stopVoiceInput(micId); }
+      return;
+    }
+    if (event.error === 'aborted') return;
+    stopVoiceInput(micId);
+  };
+
+  voiceRecognition.onend = function() {
+    stopVoiceInput(micId);
+    input.focus();
+  };
+
+  try { voiceRecognition.start(); } catch(e) { stopVoiceInput(micId); }
+}
+
+function dedupeWord(str) {
+  // Remove duplicate consecutive letters (from "aappppllee" → "apple")
+  if (str.length <= 2) return str;
+  let result = str[0];
+  for (let i = 1; i < str.length; i++) {
+    if (str[i] !== str[i-1]) result += str[i];
+  }
+  return result;
+}
+
+function stopVoiceInput(micId) {
+  clearTimeout(voiceSilenceTimer);
+  voiceSilenceTimer = null;
+  const micBtn = document.getElementById(micId);
+  if (micBtn) { micBtn.classList.remove('listening'); micBtn.textContent = '🎤'; }
+  if (voiceRecognition) {
+    try { voiceRecognition.stop(); } catch(e) {}
+    voiceRecognition = null;
+  }
+}
+
+// ============================================================
+// SRS ENGINE
+// ============================================================
+function getNextReviewDate(level) {
+  const d = new Date();
+  switch(level) {
+    case 0: break;
+    case 1: d.setDate(d.getDate()+1); break;
+    case 2: d.setDate(d.getDate()+3); break;
+    case 3: d.setDate(d.getDate()+7); break;
+  }
+  return d.toISOString().slice(0,10);
+}
+
+function getWordsForToday(state, count) {
+  count = count || state.settings.dailyNewWords;
+  const todayStr = today();
+  const unlearned = state.wordBank.filter(w=>w.reviewLevel<0);
+  if (unlearned.length === 0) return { newWords:[], reviewWords:[] };
+
+  const topicCounts = {};
+  unlearned.forEach(w=>{ topicCounts[w.topic]=(topicCounts[w.topic]||0)+1; });
+  const topicEntries = Object.entries(topicCounts).map(([t,c])=>[parseInt(t),c]);
+  topicEntries.sort((a,b)=>b[1]-a[1]);
+
+  const started = topicEntries.find(([t])=>state.wordBank.some(w=>w.topic===t&&w.reviewLevel>=0));
+  const pickTopic = started ? started[0] : topicEntries[0][0];
+
+  const topicWords = unlearned.filter(w=>w.topic===pickTopic);
+  const newWords = topicWords.slice(0, count);
+
+  const reviewWords = state.wordBank.filter(w=>
+    w.reviewLevel>=0 && w.nextReview && w.nextReview <= todayStr &&
+    !newWords.find(nw=>nw.id===w.id)
+  );
+
+  return { newWords, reviewWords };
+}
+
+// ============================================================
+// WRONG BOOK HELPERS
+// ============================================================
+function addToWrongBook(wordId, quizType) {
+  const existing = appState.wrongBook.find(e=>e.wordId===wordId);
+  if (existing) {
+    existing.count++;
+    existing.lastDate = today();
+  } else {
+    appState.wrongBook.push({ wordId, quizType, date: today(), lastDate: today(), count: 1 });
+  }
+}
+
+function getWrongBookWords() {
+  return appState.wrongBook
+    .sort((a,b)=>b.count-a.count)
+    .map(e=>{
+      const w = appState.wordBank.find(x=>x.id===e.wordId);
+      return w ? {...e, word:w.word, meaning:w.meaning, example:w.example, exampleCn:w.exampleCn} : null;
+    })
+    .filter(Boolean);
+}
+
+// ============================================================
+// POINTS & PET
+// ============================================================
+let pendingPoints = 0;
+let petLeveledUp = false;
+
+function addPoints(pts) {
+  const oldLevel = getPetLevel(appState.points);
+  appState.points = (appState.points||0) + pts;
+  pendingPoints += pts;
+  const newLevel = getPetLevel(appState.points);
+  if (newLevel > oldLevel && newLevel > (appState.petNotifiedLevel||0)) {
+    petLeveledUp = true;
+    appState.petNotifiedLevel = newLevel;
+  }
+}
+
+function getPetStage() {
+  const lvl = Math.min(getPetLevel(appState.points||0), PET_STAGES.length-1);
+  return PET_STAGES[lvl];
+}
+
+// ============================================================
+// RENDER ENGINE
+// ============================================================
+let appState = null;
+const app = document.getElementById('app');
+
+function initDailyIfNeeded() {
+  const todayStr = today();
+  if (!appState.dailyState || appState.dailyState.date !== todayStr) {
+    pendingPoints = 0;
+    petLeveledUp = false;
+    const { newWords, reviewWords } = getWordsForToday(appState);
+
+    appState.dailyState = {
+      date: todayStr,
+      phase: newWords.length>0 ? 'flashcard' : (reviewWords.length>0 ? 'review' : 'complete'),
+      newWordIds: newWords.map(w=>w.id),
+      currentCardIndex: 0,
+      currentQuizIndex: 0,
+      quizType: 'sight',
+      quizResults: [],
+      reviewQueue: reviewWords.map(w=>w.id),
+      reviewIndex: 0,
+      reviewResults: [],
+      seenCards: 0,
+      isExtra: false,
+    };
+    saveState(appState);
+  }
+}
+
+function render() {
+  initDailyIfNeeded();
+  const ds = appState.dailyState;
+  switch(ds.phase) {
+    case 'flashcard': renderFlashcard(); break;
+    case 'sight-quiz': case 'sound-quiz': case 'spell-quiz': renderQuiz(); break;
+    case 'review': renderReview(); break;
+    case 'complete': renderComplete(); break;
+    case 'wrongbook': renderWrongBook(); break;
+    default: renderDashboard();
+  }
+}
+
+// ===== DASHBOARD =====
+function renderDashboard() {
+  const learned = appState.wordBank.filter(w=>w.reviewLevel>=0).length;
+  let streak = 0;
+  const hist = [...appState.history].reverse();
+  const todayStr = today();
+  for (const h of hist) {
+    if (h.date === todayStr) continue;
+    if (h.wordsLearned > 0 || h.wordsReviewed > 0) streak++;
+    else break;
+  }
+  const ds = appState.dailyState;
+  if (ds && ds.phase === 'complete') streak++;
+
+  const isComplete = ds && ds.phase === 'complete';
+  const isProgress = ds && ds.phase !== 'complete' && ds.date === todayStr;
+  const statusLabel = isComplete ? '✅ 今日已完成' : (isProgress ? '⏳ 进行中' : '📋 准备开始');
+  const statusClass = isComplete ? 'done' : (isProgress ? 'progress' : 'ready');
+
+  const pet = getPetStage();
+  const petLvl = getPetLevel(appState.points||0);
+  const petPct = getPetProgress(appState.points||0);
+  const isGraduated = petLvl >= PET_STAGES.length-1;
+  const wrongCount = appState.wrongBook.reduce((s,e)=>s+e.count,0);
+
+  let petHtml = '';
+  if (petLeveledUp && !isGraduated) {
+    petHtml = `<div class="pet-points-earned">🎉 你的宠物升级到了 <strong>${pet.name}</strong>！</div>`;
+    petLeveledUp = false;
+  } else if (pendingPoints > 0) {
+    petHtml = `<div class="pet-points-earned">+${pendingPoints} 积分！继续加油！</div>`;
+    pendingPoints = 0;
+  }
+
+  app.innerHTML = `
+    <div class="dashboard">
+      <div class="pet-box ${petLeveledUp?'level-up':''}" onclick="petClick()">
+        <div class="pet-emoji">${pet.emoji}</div>
+        <div class="pet-name">${pet.name} ${isGraduated?'🎓':''}</div>
+        ${isGraduated ? '<div class="pet-graduated">🏆 已毕业！太厉害了！</div>' : `
+          <div class="pet-level-bar"><div class="pet-level-fill" style="width:${petPct}%"></div></div>
+          <div class="pet-info"><span>Lv.${petLvl+1}</span><span>${appState.points||0} 积分</span><span>→ Lv.${petLvl+2}</span></div>
+        `}
+        ${petHtml}
+      </div>
+      <div class="stat-cards">
+        <div class="stat-card"><div class="num words">${learned}</div><div class="label">累计词汇</div></div>
+        <div class="stat-card"><div class="num">${appState.history.length||0}</div><div class="label">学习天数</div></div>
+        <div class="stat-card"><div class="num days">${streak}🔥</div><div class="label">连续打卡</div></div>
+      </div>
+      <div class="stat-cards">
+        <div class="stat-card"><div class="num points">${appState.points||0}</div><div class="label">总积分</div></div>
+        <div class="stat-card"><div class="num" style="color:#636E72">${wrongCount||0}</div><div class="label">错题本</div></div>
+      </div>
+      <div class="status-badge ${statusClass}">${statusLabel}</div>
+      <div class="dash-btns">
+        ${isComplete ? `
+          <button class="btn-start" style="background:#51CF66;" onclick="startReview()">🔄 再复习一次</button>
+        ` : `
+          <button class="btn-start" onclick="startSession()">
+            ${isProgress ? '▶️ 继续学习' : '🚀 开始学习'}
+          </button>
+        `}
+        <button class="btn-secondary" onclick="openWrongBook()">📕 错题本${wrongCount>0?' ('+wrongCount+'题)':''}</button>
+      </div>
+    </div>`;
+}
+
+function petClick() {
+  const pet = getPetStage();
+  if (getPetLevel(appState.points||0) >= PET_STAGES.length-1) {
+    speak('Congratulations! Your pet graduated!', 0.8);
+  } else {
+    speak('Hello! Keep learning to help me grow!', 0.8);
+  }
+}
+
+function startSession() {
+  initDailyIfNeeded();
+  const ds = appState.dailyState;
+  ds.phase = ds.newWordIds.length>0 ? 'flashcard' : (ds.reviewQueue.length>0 ? 'review' : 'complete');
+  ds.isExtra = false;
+  saveState(appState);
+  render();
+}
+
+function startReview() {
+  const reviewWords = appState.wordBank.filter(w=>
+    w.reviewLevel>=0 && w.reviewLevel<3
+  ).slice(0, 10);
+  appState.dailyState.reviewQueue = reviewWords.map(w=>w.id);
+  appState.dailyState.reviewIndex = 0;
+  appState.dailyState.reviewResults = [];
+  appState.dailyState.phase = 'review';
+  appState.dailyState.newWordIds = [];
+  appState.dailyState.quizResults = [];
+  saveState(appState);
+  render();
+}
+
+function startExtraFive() {
+  const { newWords } = getWordsForToday(appState, 5);
+  if (newWords.length === 0) return;
+  const ds = appState.dailyState;
+  ds.newWordIds = newWords.map(w=>w.id);
+  ds.currentCardIndex = 0;
+  ds.currentQuizIndex = 0;
+  ds.quizType = 'sight';
+  ds.quizResults = [];
+  ds.reviewQueue = [];
+  ds.reviewIndex = 0;
+  ds.reviewResults = [];
+  ds.isExtra = true;
+  ds.phase = 'flashcard';
+  saveState(appState);
+  render();
+}
+
+// ===== FLASHCARD =====
+let cardFlipped = false;
+
+function renderFlashcard() {
+  const ds = appState.dailyState;
+  const idx = ds.currentCardIndex;
+  const newWords = ds.newWordIds.map(id=>appState.wordBank.find(w=>w.id===id)).filter(Boolean);
+
+  if (idx >= newWords.length) {
+    ds.phase = 'sight-quiz';
+    ds.quizType = 'sight';
+    ds.currentQuizIndex = 0;
+    ds.quizResults = [];
+    saveState(appState);
+    render();
+    return;
+  }
+
+  const word = newWords[idx];
+  cardFlipped = false;
+
+  app.innerHTML = `
+    <div class="flashcard-view">
+      <div class="flashcard-top">
+        <button class="btn-back" onclick="goDashboard()">✕</button>
+        <div class="progress-bar"><div class="progress-fill" style="width:${(idx/newWords.length)*100}%"></div></div>
+        <div class="progress-label">${idx+1}/${newWords.length}</div>
+      </div>
+      <div class="flashcard-stage">
+        <div class="card-wrap" onclick="flipCard()">
+          <div class="card-inner" id="cardInner">
+            <div class="card-face card-front">
+              <div class="speaker" onclick="event.stopPropagation();speakWord('${word.word.replace(/'/g,"\\'")}')">🔊</div>
+              <div class="word">${word.word}</div>
+              <div class="tap-hint">👆 点击卡片查看意思</div>
+            </div>
+            <div class="card-face card-back">
+              <div class="meaning">${word.meaning}</div>
+              <div class="example">${word.example}</div>
+              <div class="example-cn">${word.exampleCn}</div>
+              <div class="example-speaker" onclick="event.stopPropagation();speakSentence('${word.example.replace(/'/g,"\\'")}')">🔊 朗读例句</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="btn-next-wrap">
+        <button class="btn-next" id="btnNext" ${!cardFlipped?'disabled':''} onclick="nextCard()">
+          ${idx<newWords.length-1 ? '下一个单词 →' : '开始测验 →'}
+        </button>
+      </div>
+    </div>`;
+
+  setTimeout(()=>speakWord(word.word), 300);
+}
+
+function speakWord(word) { speak(word, 0.7); }
+function speakSentence(s) { speak(s, 0.85); }
+
+function flipCard() {
+  cardFlipped = true;
+  document.getElementById('cardInner').classList.add('flipped');
+  const btn = document.getElementById('btnNext');
+  if (btn) btn.disabled = false;
+}
+
+function nextCard() {
+  appState.dailyState.currentCardIndex++;
+  saveState(appState);
+  renderFlashcard();
+}
+
+// ===== QUIZ =====
+let quizAnswered = false;
+let quizCorrectAnswer = '';
+let currentQuizWordId = null;
+
+function renderQuiz() {
+  const ds = appState.dailyState;
+  const quizType = ds.quizType;
+  const idx = ds.currentQuizIndex;
+  const newWords = ds.newWordIds.map(id=>appState.wordBank.find(w=>w.id===id)).filter(Boolean);
+
+  if (idx >= newWords.length) {
+    if (quizType === 'sight') { ds.quizType = 'sound'; ds.currentQuizIndex = 0; }
+    else if (quizType === 'sound') { ds.quizType = 'spell'; ds.currentQuizIndex = 0; }
+    else { finishQuizzes(); return; }
+    quizAnswered = false;
+    saveState(appState);
+    renderQuiz();
+    return;
+  }
+
+  quizAnswered = false;
+  const targetWord = newWords[idx];
+  currentQuizWordId = targetWord.id;
+
+  if (quizType === 'spell') { renderSpellQuiz(targetWord); return; }
+
+  const allWords = appState.wordBank;
+  const distractors = pickRandom(allWords, 3, [targetWord]);
+  const options = shuffle([targetWord, ...distractors]);
+
+  const showWord = quizType === 'sight';
+  const typeLabel = showWord ? '👀 看义选词' : '👂 听音选词';
+  const typeHint = showWord ? '选出这个单词的中文意思' : '听发音，选出你听到的单词';
+
+  app.innerHTML = `
+    <div class="quiz-view">
+      <div class="flashcard-top">
+        <button class="btn-back" onclick="goDashboard()">✕</button>
+        <div class="progress-bar"><div class="progress-fill" style="width:${(idx/newWords.length)*100}%"></div></div>
+        <div class="progress-label">${idx+1}/${newWords.length}</div>
+      </div>
+      <div class="quiz-header"><span class="quiz-type">${typeLabel}</span></div>
+      <div class="quiz-question">
+        ${showWord ? `
+          <div class="question-word">${targetWord.word}</div>
+          <div class="question-hint">${typeHint}</div>
+        ` : `
+          <button class="speaker-btn" id="speakerBtn" onclick="playQuizSound()">🔊</button>
+          <div class="question-hint">${typeHint}</div>
+        `}
+      </div>
+      <div class="quiz-options" id="quizOptions">
+        ${options.map((opt,i)=>`
+          <button class="quiz-option" data-idx="${i}" data-word="${showWord?opt.meaning:opt.word.replace(/'/g,'&#39;')}">
+            ${showWord ? opt.meaning : opt.word}
+          </button>
+        `).join('')}
+      </div>
+    </div>`;
+
+  quizCorrectAnswer = showWord ? targetWord.meaning : targetWord.word;
+
+  document.querySelectorAll('.quiz-option').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if (quizAnswered) return;
+      quizAnswered = true;
+      const isCorrect = btn.dataset.word === quizCorrectAnswer;
+      handleQuizAnswer(isCorrect, btn.dataset.word);
+    });
+  });
+
+  if (!showWord) setTimeout(()=>playQuizSound(), 400);
+}
+
+function playQuizSound() {
+  const word = appState.wordBank.find(w=>w.id===currentQuizWordId);
+  if (!word) return;
+  const btn = document.getElementById('speakerBtn');
+  if (btn) btn.classList.add('playing');
+  speak(word.word, 0.65).then(()=>{ if(btn) btn.classList.remove('playing'); });
+}
+
+function handleQuizAnswer(correct, selectedText) {
+  const ds = appState.dailyState;
+
+  ds.quizResults.push({ wordId:currentQuizWordId, type:ds.quizType, correct, responseTime:2000 });
+
+  if (correct) { addPoints(PTS_CORRECT); }
+  else { addToWrongBook(currentQuizWordId, ds.quizType); }
+
+  document.querySelectorAll('.quiz-option').forEach(btn=>{
+    btn.classList.add('disabled');
+    if (btn.dataset.word === quizCorrectAnswer) btn.classList.add(correct?'correct':'show-correct');
+    else if (btn.dataset.word === selectedText && !correct) btn.classList.add('wrong');
+  });
+
+  setTimeout(()=>{
+    ds.currentQuizIndex++;
+    quizAnswered = false;
+    saveState(appState);
+    renderQuiz();
+  }, 1400);
+}
+
+// ===== SPELLING =====
+let spellAttempts = 0;
+
+function renderSpellQuiz(targetWord) {
+  stopVoiceInput('spellMic');
+  const ds = appState.dailyState;
+  const idx = ds.currentQuizIndex;
+  const newWords = ds.newWordIds.map(id=>appState.wordBank.find(w=>w.id===id)).filter(Boolean);
+  spellAttempts = 0;
+
+  const blankStr = '_ '.repeat(targetWord.word.length).trim();
+
+  app.innerHTML = `
+    <div class="spell-view">
+      <div class="flashcard-top">
+        <button class="btn-back" onclick="goDashboard()">✕</button>
+        <div class="progress-bar"><div class="progress-fill" style="width:${(idx/newWords.length)*100}%"></div></div>
+        <div class="progress-label">${idx+1}/${newWords.length}</div>
+      </div>
+      <div class="quiz-header"><span class="quiz-type">✍️ 拼写填空</span></div>
+      <div class="spell-question">
+        <div class="meaning-big">${targetWord.meaning}</div>
+        <div class="example-with-blank">${targetWord.example.replace(new RegExp(targetWord.word,'i'),'<span class="blank">'+blankStr+'</span>')}</div>
+        <div class="example-cn-small">${targetWord.exampleCn}</div>
+        <button class="speaker-btn" id="speakerBtnSpell" onclick="playSpellSound()">🔊</button>
+        <div class="spell-input-wrap">
+          <input class="spell-input" id="spellInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="打字或点🎤语音拼读..." onkeydown="if(event.key==='Enter')submitSpell()">
+          <button class="spell-mic" id="spellMic" onclick="startVoiceInput('spellInput','spellMic')" title="🎤 语音拼写单词">🎤</button>
+        </div>
+        <div class="spell-hint" id="spellHint"></div>
+        <button class="btn-submit" id="btnSpellSubmit" onclick="submitSpell()">确认 ✓</button>
+        <div class="spell-feedback" id="spellFeedback"></div>
+      </div>
+    </div>`;
+
+  setTimeout(()=>playSpellSound(), 300);
+  setTimeout(()=>document.getElementById('spellInput')?.focus(), 500);
+}
+
+function playSpellSound() {
+  const word = appState.wordBank.find(w=>w.id===currentQuizWordId);
+  if (!word) return;
+  const btn = document.getElementById('speakerBtnSpell');
+  if (btn) btn.classList.add('playing');
+  speak(word.word, 0.65).then(()=>{ if(btn) btn.classList.remove('playing'); });
+}
+
+function submitSpell() {
+  if (quizAnswered) return;
+  stopVoiceInput('spellMic');
+  const input = document.getElementById('spellInput');
+  const feedback = document.getElementById('spellFeedback');
+  const hint = document.getElementById('spellHint');
+  const word = appState.wordBank.find(w=>w.id===currentQuizWordId);
+  if (!word || !input) return;
+
+  const answer = input.value.trim().toLowerCase();
+  const correct = word.word.toLowerCase();
+
+  if (answer === correct) {
+    quizAnswered = true;
+    feedback.innerHTML = '<span style="color:#51CF66">✅ 正确！</span>';
+    input.disabled = true;
+    document.getElementById('btnSpellSubmit').disabled = true;
+    addPoints(PTS_CORRECT);
+
+    appState.dailyState.quizResults.push({ wordId:currentQuizWordId, type:'spell', correct:true, responseTime:5000 });
+
+    setTimeout(()=>{
+      appState.dailyState.currentQuizIndex++;
+      quizAnswered = false;
+      spellAttempts = 0;
+      saveState(appState);
+      renderQuiz();
+    }, 1200);
+  } else {
+    spellAttempts++;
+    if (spellAttempts === 1) {
+      hint.textContent = `💡 提示：首字母是 "${word.word[0].toUpperCase()}"，共 ${word.word.length} 个字母`;
+      input.value = '';
+      input.focus();
+      input.classList.add('shake');
+      setTimeout(()=>input.classList.remove('shake'), 400);
+    } else {
+      quizAnswered = true;
+      feedback.innerHTML = `<span style="color:#FF6B6B">正确答案：<strong>${word.word}</strong></span>`;
+      input.disabled = true;
+      document.getElementById('btnSpellSubmit').disabled = true;
+
+      addToWrongBook(currentQuizWordId, 'spell');
+      appState.dailyState.quizResults.push({ wordId:currentQuizWordId, type:'spell', correct:false, responseTime:8000 });
+
+      setTimeout(()=>{
+        appState.dailyState.currentQuizIndex++;
+        quizAnswered = false;
+        spellAttempts = 0;
+        saveState(appState);
+        renderQuiz();
+      }, 2000);
+    }
+  }
+}
+
+function finishQuizzes() {
+  const ds = appState.dailyState;
+  const newWordIds = ds.newWordIds;
+
+  newWordIds.forEach(wid=>{
+    const word = appState.wordBank.find(w=>w.id===wid);
+    if (!word) return;
+    const wordResults = ds.quizResults.filter(r=>r.wordId===wid);
+    const allCorrect = wordResults.length===3 && wordResults.every(r=>r.correct);
+
+    if (allCorrect) {
+      word.reviewLevel = 1;
+      word.nextReview = getNextReviewDate(1);
+      word.learnedDate = today();
+      addPoints(PTS_WORD_MASTERED);
+    } else {
+      word.reviewLevel = 0;
+      word.nextReview = today();
+      word.wrongCount = (word.wrongCount||0) + wordResults.filter(r=>!r.correct).length;
+    }
+  });
+
+  const reviewWords = appState.wordBank.filter(w=>
+    w.reviewLevel>=0 && w.nextReview && w.nextReview <= today() && !newWordIds.includes(w.id)
+  );
+  const failedNewWords = appState.wordBank.filter(w=>
+    newWordIds.includes(w.id) && w.reviewLevel===0
+  );
+
+  const allReview = [...reviewWords, ...failedNewWords];
+  const seen = new Set();
+  const uniqueReview = allReview.filter(w=>{ const k=w.id; if(seen.has(k))return false; seen.add(k); return true; });
+
+  if (uniqueReview.length > 0) {
+    ds.phase = 'review';
+    ds.reviewQueue = uniqueReview.map(w=>w.id);
+    ds.reviewIndex = 0;
+    ds.reviewResults = [];
+  } else {
+    ds.phase = 'complete';
+    addPoints(PTS_DAY_COMPLETE);
+    archiveDay();
+  }
+
+  saveState(appState);
+  render();
+}
+
+// ===== REVIEW =====
+let reviewAnswered = false;
+let reviewCorrectAnswer = '';
+
+function renderReview() {
+  const ds = appState.dailyState;
+  const idx = ds.reviewIndex;
+  const reviewWords = ds.reviewQueue.map(id=>appState.wordBank.find(w=>w.id===id)).filter(Boolean);
+
+  if (idx >= reviewWords.length || reviewWords.length === 0) {
+    ds.phase = 'complete';
+    addPoints(PTS_DAY_COMPLETE);
+    archiveDay();
+    saveState(appState);
+    render();
+    return;
+  }
+
+  reviewAnswered = false;
+  const targetWord = reviewWords[idx];
+  currentQuizWordId = targetWord.id;
+
+  const types = ['sight','sound','spell'];
+  const reviewType = types[Math.floor(Math.random()*3)];
+
+  if (reviewType === 'spell') { renderReviewSpell(targetWord); return; }
+
+  const allWords = appState.wordBank;
+  const distractors = pickRandom(allWords, 3, [targetWord]);
+  const options = shuffle([targetWord, ...distractors]);
+
+  const showWord = reviewType === 'sight';
+  const typeLabel = showWord ? '👀 看义选词' : '👂 听音选词';
+
+  app.innerHTML = `
+    <div class="quiz-view">
+      <div class="flashcard-top">
+        <button class="btn-back" onclick="goDashboard()">✕</button>
+        <div class="progress-bar"><div class="progress-fill" style="background:#4ECDC4;width:${(idx/reviewWords.length)*100}%"></div></div>
+        <div class="progress-label">复习 ${idx+1}/${reviewWords.length}</div>
+      </div>
+      <div class="quiz-header"><span class="quiz-type" style="color:#4ECDC4;">${typeLabel} · 复习</span></div>
+      <div class="quiz-question">
+        ${showWord ? `
+          <div class="question-word">${targetWord.word}</div>
+          <div class="question-hint">选出这个单词的中文意思</div>
+        ` : `
+          <button class="speaker-btn" style="background:#ECFDF5;" id="speakerBtn" onclick="playQuizSound()">🔊</button>
+          <div class="question-hint">听发音，选出你听到的单词</div>
+        `}
+      </div>
+      <div class="quiz-options" id="quizOptions">
+        ${options.map((opt,i)=>`
+          <button class="quiz-option" data-idx="${i}" data-word="${showWord?opt.meaning:opt.word.replace(/'/g,'&#39;')}">
+            ${showWord ? opt.meaning : opt.word}
+          </button>
+        `).join('')}
+      </div>
+    </div>`;
+
+  reviewCorrectAnswer = showWord ? targetWord.meaning : targetWord.word;
+
+  document.querySelectorAll('.quiz-option').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if (reviewAnswered) return;
+      reviewAnswered = true;
+      handleReviewAnswer(btn.dataset.word === reviewCorrectAnswer, btn.dataset.word);
+    });
+  });
+
+  if (!showWord) setTimeout(()=>playQuizSound(), 400);
+}
+
+function handleReviewAnswer(correct, selectedText) {
+  const word = appState.wordBank.find(w=>w.id===currentQuizWordId);
+
+  appState.dailyState.reviewResults.push({ wordId:currentQuizWordId, correct });
+
+  if (correct) {
+    if (word.reviewLevel < 3) word.reviewLevel++;
+    word.nextReview = getNextReviewDate(word.reviewLevel);
+    addPoints(PTS_CORRECT);
+  } else {
+    word.reviewLevel = 0;
+    word.nextReview = getNextReviewDate(0);
+    word.wrongCount = (word.wrongCount||0) + 1;
+    addToWrongBook(currentQuizWordId, 'review');
+  }
+
+  document.querySelectorAll('.quiz-option').forEach(btn=>{
+    btn.classList.add('disabled');
+    if (btn.dataset.word === reviewCorrectAnswer) btn.classList.add(correct?'correct':'show-correct');
+    else if (btn.dataset.word === selectedText && !correct) btn.classList.add('wrong');
+  });
+
+  setTimeout(()=>{
+    appState.dailyState.reviewIndex++;
+    reviewAnswered = false;
+    saveState(appState);
+    renderReview();
+  }, 1400);
+}
+
+function renderReviewSpell(targetWord) {
+  stopVoiceInput('spellMic');
+  const ds = appState.dailyState;
+  const idx = ds.reviewIndex;
+  const reviewWords = ds.reviewQueue.map(id=>appState.wordBank.find(w=>w.id===id)).filter(Boolean);
+  spellAttempts = 0;
+  quizAnswered = false;
+
+  const blankStr = '_ '.repeat(targetWord.word.length).trim();
+
+  app.innerHTML = `
+    <div class="spell-view">
+      <div class="flashcard-top">
+        <button class="btn-back" onclick="goDashboard()">✕</button>
+        <div class="progress-bar"><div class="progress-fill" style="background:#4ECDC4;width:${(idx/reviewWords.length)*100}%"></div></div>
+        <div class="progress-label">复习 ${idx+1}/${reviewWords.length}</div>
+      </div>
+      <div class="quiz-header"><span class="quiz-type" style="color:#4ECDC4;">✍️ 拼写填空 · 复习</span></div>
+      <div class="spell-question">
+        <div class="meaning-big">${targetWord.meaning}</div>
+        <div class="example-with-blank">${targetWord.example.replace(new RegExp(targetWord.word,'i'),'<span class="blank">'+blankStr+'</span>')}</div>
+        <div class="example-cn-small">${targetWord.exampleCn}</div>
+        <button class="speaker-btn" style="background:#ECFDF5;" id="speakerBtnSpell" onclick="playSpellSound()">🔊</button>
+        <div class="spell-input-wrap">
+          <input class="spell-input" id="spellInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="打字或点🎤语音拼读..." onkeydown="if(event.key==='Enter')submitReviewSpell()">
+          <button class="spell-mic" id="spellMic" onclick="startVoiceInput('spellInput','spellMic')" title="🎤 语音拼写单词">🎤</button>
+        </div>
+        <div class="spell-hint" id="spellHint"></div>
+        <button class="btn-submit" style="background:#4ECDC4;" id="btnSpellSubmit" onclick="submitReviewSpell()">确认 ✓</button>
+        <div class="spell-feedback" id="spellFeedback"></div>
+      </div>
+    </div>`;
+
+  setTimeout(()=>playSpellSound(), 300);
+  setTimeout(()=>document.getElementById('spellInput')?.focus(), 500);
+}
+
+function submitReviewSpell() {
+  if (quizAnswered) return;
+  stopVoiceInput('spellMic');
+  const input = document.getElementById('spellInput');
+  const feedback = document.getElementById('spellFeedback');
+  const hint = document.getElementById('spellHint');
+  const word = appState.wordBank.find(w=>w.id===currentQuizWordId);
+  if (!word || !input) return;
+
+  const answer = input.value.trim().toLowerCase();
+
+  if (answer === word.word.toLowerCase()) {
+    quizAnswered = true;
+    feedback.innerHTML = '<span style="color:#51CF66">✅ 正确！</span>';
+    input.disabled = true;
+    document.getElementById('btnSpellSubmit').disabled = true;
+    addPoints(PTS_CORRECT);
+
+    if (word.reviewLevel < 3) word.reviewLevel++;
+    word.nextReview = getNextReviewDate(word.reviewLevel);
+    appState.dailyState.reviewResults.push({ wordId:currentQuizWordId, correct:true });
+
+    setTimeout(()=>{
+      appState.dailyState.reviewIndex++;
+      quizAnswered = false;
+      saveState(appState);
+      renderReview();
+    }, 1200);
+  } else {
+    spellAttempts++;
+    if (spellAttempts === 1) {
+      hint.textContent = `💡 提示：首字母是 "${word.word[0].toUpperCase()}"，共 ${word.word.length} 个字母`;
+      input.value = '';
+      input.focus();
+      input.classList.add('shake');
+      setTimeout(()=>input.classList.remove('shake'), 400);
+    } else {
+      quizAnswered = true;
+      feedback.innerHTML = `<span style="color:#FF6B6B">正确答案：<strong>${word.word}</strong></span>`;
+      input.disabled = true;
+      document.getElementById('btnSpellSubmit').disabled = true;
+
+      word.reviewLevel = 0;
+      word.nextReview = getNextReviewDate(0);
+      word.wrongCount = (word.wrongCount||0) + 1;
+      addToWrongBook(currentQuizWordId, 'spell');
+      appState.dailyState.reviewResults.push({ wordId:currentQuizWordId, correct:false });
+
+      setTimeout(()=>{
+        appState.dailyState.reviewIndex++;
+        quizAnswered = false;
+        saveState(appState);
+        renderReview();
+      }, 2000);
+    }
+  }
+}
+
+// ===== COMPLETE =====
+function archiveDay() {
+  const ds = appState.dailyState;
+  const todayStr = today();
+  if (appState.history.find(h=>h.date===todayStr)) return;
+
+  const newLearned = ds.newWordIds.filter(wid=>{
+    const w = appState.wordBank.find(x=>x.id===wid);
+    return w && w.reviewLevel>=1;
+  }).length;
+
+  const totalResults = [...ds.quizResults, ...ds.reviewResults];
+  const correct = totalResults.filter(r=>r.correct).length;
+  const wrong = totalResults.filter(r=>!r.correct).length;
+
+  appState.history.push({ date:todayStr, wordsLearned:newLearned, wordsReviewed:ds.reviewQueue.length, correct, wrong });
+  saveState(appState);
+}
+
+function renderComplete() {
+  const ds = appState.dailyState;
+  const totalResults = [...ds.quizResults, ...ds.reviewResults];
+  const correct = totalResults.filter(r=>r.correct).length;
+  const total = totalResults.length;
+  const pct = total>0 ? Math.round(correct/total*100) : 100;
+
+  const newLearned = ds.newWordIds.filter(wid=>{
+    const w = appState.wordBank.find(x=>x.id===wid);
+    return w && w.reviewLevel>=1;
+  }).length;
+
+  let emoji, msg;
+  if (pct >= 90) { emoji='🏆'; msg='你今天表现超级棒！这些单词都难不倒你！'; }
+  else if (pct >= 70) { emoji='⭐'; msg='做得不错！继续保持，你会越来越厉害的！'; }
+  else if (pct >= 50) { emoji='📚'; msg='有进步！多复习几次，这些词就会变成你的好朋友！'; }
+  else { emoji='🌈'; msg='没关系，学习新单词需要时间。明天再来，一定会更好！'; }
+
+  const streak = appState.history.length;
+  const pet = getPetStage();
+  const canExtra = pct >= 80 && !ds.isExtra;
+
+  const unlearnedLeft = appState.wordBank.filter(w=>w.reviewLevel<0).length;
+
+  app.innerHTML = `
+    <div class="complete-view pop">
+      <div class="emoji">${emoji}</div>
+      <h2>今日学习完成！</h2>
+      <p class="message">${msg}</p>
+      <div class="complete-stats">
+        <div class="complete-stat"><div class="val green">${newLearned}</div><div class="lbl">新词通过</div></div>
+        <div class="complete-stat"><div class="val">${ds.reviewQueue?.length||0}</div><div class="lbl">复习词汇</div></div>
+        <div class="complete-stat"><div class="val yellow">${pct}%</div><div class="lbl">正确率</div></div>
+      </div>
+      <div class="complete-stats">
+        <div class="complete-stat"><div class="val purple">${appState.points||0}</div><div class="lbl">总积分</div></div>
+        <div class="complete-stat" style="text-align:center;">
+          <div style="font-size:2rem;">${pet.emoji}</div>
+          <div class="lbl">${pet.name}</div>
+        </div>
+      </div>
+      <p style="color:#636E72;margin-bottom:8px;">🔥 连续打卡 <strong>${streak}</strong> 天</p>
+      ${petLeveledUp ? `<p style="color:#A855F7;font-weight:700;margin-bottom:12px;" class="pop">🎉 你的宠物升级到 <strong>${pet.name}</strong> 啦！</p>` : ''}
+      ${canExtra ? `<button class="btn-extra" onclick="startExtraFive()">🌟 正确率超过80%！再学5个词</button>` : ''}
+      ${!canExtra ? `<p style="font-size:0.8rem;color:#868E96;margin-bottom:12px;">正确率达到80%以上可解锁"再学5个"</p>` : ''}
+      ${unlearnedLeft === 0 ? `<p style="color:#F59E0B;font-weight:700;">🎉 恭喜！你已经学完了所有200个词！</p>` : ''}
+      <button class="btn-done" onclick="goDashboard()">🏠 返回首页</button>
+    </div>`;
+}
+
+// ===== WRONG BOOK =====
+function openWrongBook() {
+  initDailyIfNeeded();
+  appState.dailyState.phase = 'wrongbook';
+  saveState(appState);
+  renderWrongBook();
+}
+
+function renderWrongBook() {
+  const words = getWrongBookWords();
+  const totalWrong = words.reduce((s,w)=>s+w.count,0);
+
+  app.innerHTML = `
+    <div class="wrongbook-view">
+      <div class="wrongbook-header">
+        <button class="btn-back" onclick="goDashboard()">←</button>
+        <h2>📕 错题本</h2>
+        <div style="width:40px;"></div>
+      </div>
+      ${words.length === 0 ? `
+        <div class="wrongbook-empty">
+          <div class="icon">🌟</div>
+          <p>还没有错题！继续保持！</p>
+        </div>
+      ` : `
+        <div class="wrongbook-stats">共 <strong>${words.length}</strong> 个单词，累计错误 <strong>${totalWrong}</strong> 次</div>
+        <div class="wrongbook-list" id="wrongbookList">
+          ${words.map((w,i)=>`
+            <div class="wrongbook-item" id="wrongItem${i}">
+              <div>
+                <div class="wrong-word">${w.word}</div>
+                <div class="wrong-meaning">${w.meaning} · 错${w.count}次</div>
+              </div>
+              <button class="btn-retry" onclick="retryWrongWord(${w.wordId},${i})">🔄 复习</button>
+            </div>
+            <div id="retryArea${i}"></div>
+          `).join('')}
+        </div>
+        <button class="btn-start" style="margin-top:12px;background:linear-gradient(135deg,#FF6B6B,#FF8787);" onclick="retryAllWrong()">🔁 复习全部错题</button>
+      `}
+    </div>`;
+
+  if (words.length === 0) return;
+
+  // Auto-expand first item for easy access
+  setTimeout(()=>{
+    if (words[0]) retryWrongWord(words[0].wordId, 0);
+  }, 100);
+}
+
+let wrongRetryAnswered = false;
+let wrongRetryCorrectAnswer = '';
+
+function retryWrongWord(wordId, idx) {
+  const word = appState.wordBank.find(w=>w.id===wordId);
+  if (!word) return;
+
+  wrongRetryAnswered = false;
+  currentQuizWordId = wordId;
+
+  const types = ['sight','sound','spell'];
+  const qType = types[Math.floor(Math.random()*3)];
+  const showWord = qType === 'sight';
+
+  const allWords = appState.wordBank;
+  const distractors = pickRandom(allWords, 3, [word]);
+  const options = shuffle([word, ...distractors]);
+
+  const area = document.getElementById('retryArea'+idx);
+  if (!area) return;
+
+  if (qType === 'spell') {
+    const blankStr = '_ '.repeat(word.word.length).trim();
+    area.innerHTML = `
+      <div class="retry-quiz pop">
+        <div class="quiz-type">✍️ 拼写填空</div>
+        <div style="text-align:center;">
+          <div style="font-size:1.3rem;font-weight:700;color:#FF6B6B;margin-bottom:6px;">${word.meaning}</div>
+          <div style="font-size:0.95rem;color:#495057;margin-bottom:6px;">${word.example.replace(new RegExp(word.word,'i'),'<span style="color:#FF6B6B;font-weight:700;letter-spacing:2px;">'+blankStr+'</span>')}</div>
+          <button class="speaker-btn" style="background:#FFF0F0;" onclick="speak('${word.word.replace(/'/g,"\\'")}',0.65)">🔊</button>
+          <div style="margin-top:8px;">
+            <input id="retrySpellInput${idx}" class="spell-input" type="text" placeholder="输入拼写..." style="width:80%;display:inline-block;">
+            <button onclick="checkRetrySpell(${wordId},${idx})" style="padding:10px 16px;border:none;border-radius:10px;background:#FF6B6B;color:white;font-weight:700;cursor:pointer;margin-left:6px;">✓</button>
+          </div>
+          <div id="retrySpellFeedback${idx}" style="margin-top:6px;min-height:22px;"></div>
+          <div id="retrySpellHint${idx}" style="font-size:0.8rem;color:#FF6B6B;min-height:18px;"></div>
+        </div>
+      </div>`;
+    setTimeout(()=>speak(word.word, 0.65), 300);
+    window['_retrySpellAttempts'+idx] = 0;
+    return;
+  }
+
+  area.innerHTML = `
+    <div class="retry-quiz pop">
+      <div class="quiz-type">${qType==='sight'?'👀 看义选词':'👂 听音选词'} · 复习</div>
+      ${showWord ? `<div class="question-word" style="font-size:1.4rem;text-align:center;">${word.word}</div>` : ''}
+      <div class="quiz-options">
+        ${options.map((opt,i)=>`
+          <button class="quiz-option" style="font-size:0.9rem;"
+            data-word="${showWord?opt.meaning:opt.word.replace(/'/g,'&#39;')}">
+            ${showWord ? opt.meaning : opt.word}
+          </button>
+        `).join('')}
+      </div>
+    </div>`;
+
+  wrongRetryCorrectAnswer = showWord ? word.meaning : word.word;
+
+  area.querySelectorAll('.quiz-option').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if (wrongRetryAnswered) return;
+      wrongRetryAnswered = true;
+      const isCorrect = btn.dataset.word === wrongRetryCorrectAnswer;
+
+      area.querySelectorAll('.quiz-option').forEach(b=>{
+        b.classList.add('disabled');
+        if (b.dataset.word === wrongRetryCorrectAnswer) b.classList.add(isCorrect?'correct':'show-correct');
+        else if (b.dataset.word === btn.dataset.word && !isCorrect) b.classList.add('wrong');
+      });
+
+      if (isCorrect) {
+        addPoints(PTS_CORRECT);
+        // Remove from wrong book or reduce count
+        const wbe = appState.wrongBook.find(e=>e.wordId===wordId);
+        if (wbe && wbe.count > 1) wbe.count--;
+        else appState.wrongBook = appState.wrongBook.filter(e=>e.wordId!==wordId);
+        saveState(appState);
+      }
+
+      wrongRetryAnswered = false;
+    });
+  });
+
+  if (!showWord) setTimeout(()=>speak(word.word, 0.65), 300);
+}
+
+function checkRetrySpell(wordId, idx) {
+  const input = document.getElementById('retrySpellInput'+idx);
+  const feedback = document.getElementById('retrySpellFeedback'+idx);
+  const hint = document.getElementById('retrySpellHint'+idx);
+  const word = appState.wordBank.find(w=>w.id===wordId);
+  if (!word || !input) return;
+
+  const answer = input.value.trim().toLowerCase();
+  const attempts = (window['_retrySpellAttempts'+idx] || 0);
+
+  if (answer === word.word.toLowerCase()) {
+    feedback.innerHTML = '<span style="color:#51CF66">✅ 正确！</span>';
+    input.disabled = true;
+    addPoints(PTS_CORRECT);
+    const wbe = appState.wrongBook.find(e=>e.wordId===wordId);
+    if (wbe && wbe.count > 1) wbe.count--;
+    else appState.wrongBook = appState.wrongBook.filter(e=>e.wordId!==wordId);
+    saveState(appState);
+  } else {
+    window['_retrySpellAttempts'+idx] = attempts + 1;
+    if (attempts === 0) {
+      hint.textContent = `💡 提示：首字母 "${word.word[0].toUpperCase()}"，共${word.word.length}个字母`;
+      input.value = '';
+      input.focus();
+    } else {
+      feedback.innerHTML = `<span style="color:#FF6B6B">正确答案：<strong>${word.word}</strong></span>`;
+      input.disabled = true;
+    }
+  }
+}
+
+function retryAllWrong() {
+  const wrongWords = getWrongBookWords();
+  if (wrongWords.length === 0) return;
+
+  // Build a mini review session from wrong book words
+  const reviewIds = wrongWords.map(w=>w.wordId);
+  appState.dailyState.phase = 'review';
+  appState.dailyState.reviewQueue = reviewIds;
+  appState.dailyState.reviewIndex = 0;
+  appState.dailyState.reviewResults = [];
+  saveState(appState);
+  render();
+}
+
+// ===== NAVIGATION =====
+function goDashboard() {
+  stopVoiceInput('spellMic');
+  initDailyIfNeeded();
+  saveState(appState);
+  app.innerHTML = '';
+  quizAnswered = false;
+  reviewAnswered = false;
+  cardFlipped = false;
+  spellAttempts = 0;
+  renderDashboard();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  appState = loadState();
+  // Ensure new fields exist after upgrade
+  if (!appState.wrongBook) appState.wrongBook = [];
+  if (appState.points === undefined) appState.points = 0;
+  if (appState.petNotifiedLevel === undefined) appState.petNotifiedLevel = 0;
+  initDailyIfNeeded();
+  render();
+}
+
+init();
+</script>
+</body>
+</html>

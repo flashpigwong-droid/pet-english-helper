@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PET 词汇特训 · MVP V3 第一性原理设计</title>
+<style>
+  :root { color-scheme: light; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #F8FAFC; color: #1E293B; line-height: 1.85; padding: 40px 24px;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 1.7rem; margin-bottom: 6px; }
+  .subtitle { color: #64748B; margin-bottom: 12px; }
+  h2 {
+    font-size: 1.1rem; margin: 32px 0 10px;
+    padding-bottom: 6px; border-bottom: 2px solid #4F46E5;
+  }
+  h3 { font-size: 0.95rem; margin: 18px 0 6px; color: #4F46E5; }
+  p { margin-bottom: 10px; color: #475569; font-size: 0.9rem; }
+  .arch-block {
+    background: white; border-radius: 12px; padding: 22px 24px; margin-bottom: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .highlight-box {
+    background: linear-gradient(135deg, #EEF2FF, #F5F3FF);
+    border: 1px solid #C7D2FE; border-radius: 12px; padding: 20px 24px;
+    margin: 20px 0;
+  }
+  .highlight-box p { color: #3730A3; }
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 100px;
+    font-size: 0.7rem; font-weight: 500; margin-right: 4px;
+  }
+  .tag-cut { background: #FEE2E2; color: #991B1B; }
+  .tag-keep { background: #D1FAE5; color: #065F46; }
+  .tag-add { background: #DBEAFE; color: #1E40AF; }
+  .data-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.82rem; }
+  .data-table th { background: #F1F5F9; padding: 8px 10px; text-align: left; font-weight: 600; }
+  .data-table td { padding: 8px 10px; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
+  .data-table code { background: #F1F5F9; padding: 1px 6px; border-radius: 3px; font-size: 0.75rem; }
+  ul { margin: 6px 0 6px 18px; color: #475569; }
+  li { margin-bottom: 3px; font-size: 0.85rem; }
+
+  .session-flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0;
+  }
+  .flow-step {
+    background: #4F46E5; color: white; padding: 8px 14px; border-radius: 8px;
+    font-size: 0.8rem; font-weight: 500; text-align: center; min-width: 80px;
+  }
+  .flow-arrow { color: #94A3B8; font-size: 1.1rem; font-weight: 700; }
+  .flow-time { font-size: 0.65rem; opacity: 0.75; display: block; }
+
+  .three-col {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px; margin: 14px 0;
+  }
+  .col-card {
+    border-radius: 10px; padding: 16px; border-left: 4px solid;
+  }
+  .col-card h4 { font-size: 0.88rem; margin-bottom: 4px; }
+  .col-card p { font-size: 0.78rem; margin: 0; }
+  .card-sight { background: #EEF2FF; border-color: #4F46E5; }
+  .card-sound { background: #ECFDF5; border-color: #10B981; }
+  .card-spell { background: #FFFBEB; border-color: #F59E0B; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>PET 词汇特训 · MVP V3</h1>
+<p class="subtitle">从第一性原理出发，砍掉一切非必要，只做一件事：让孩子真正记住单词</p>
+
+<!-- ====== FIRST PRINCIPLES ====== -->
+<div class="arch-block">
+  <h2>第一性原理推导</h2>
+
+  <p><strong>公理 1：</strong>PET 听力、阅读、写作、口语的本质瓶颈是同一个——词汇量不够且不牢固。认识 500 个词但每个都要想 3 秒的孩子，阅读和听力一定差。认识 200 个词但每个都秒懂的孩子，阅读和听力至少及格。</p>
+
+  <p><strong>公理 2：</strong>一个词被"真正掌握"需要三道神经回路全部打通——眼睛看到立刻知道意思、耳朵听到立刻知道意思、想到意思能写出单词。只打通一条（比如看到认识）是不够的。</p>
+
+  <p><strong>公理 3：</strong>孩子每天愿意花在课外学习上的注意力是有限的。10-15 分钟是可持续的，超过这个时间会产生抵触，反而损害长期坚持。</p>
+
+  <div class="highlight-box">
+    <p><strong>→ 因此 MVP 只做一件事：</strong>每天 5 个词，三道神经回路同时训练，用间隔重复对抗遗忘。不做阅读题、不做听力题、不做错题本——这些是 V1.1 的事。在词汇没扎实之前，做任何阅读理解都是在练习"猜"，而不是练习"读"。</p>
+  </div>
+</div>
+
+<!-- ====== WHAT WE CUT ====== -->
+<div class="arch-block">
+  <h2>V2 → V3：砍掉了什么，为什么</h2>
+
+  <table class="data-table">
+    <tr><th>V2 MVP 功能</th><th>V3 决策</th><th>第一性原理理由</th></tr>
+    <tr>
+      <td>词汇阅读（10 篇短文 + 理解题）</td>
+      <td><span class="tag tag-cut">砍掉</span></td>
+      <td>每个单词卡片自带一个例句，例句本身就是"微型阅读"。20 秒读完一句比 5 分钟读一篇短文更高效。短文阅读理解放在 V1.1，等词库积累到 200+ 再上。</td>
+    </tr>
+    <tr>
+      <td>词汇听力（10 段对话 + 理解题）</td>
+      <td><span class="tag tag-cut">砍掉</span></td>
+      <td>"听音选词"测验本身就是听力训练——浏览器朗读一个单词，孩子从 4 个选项中选。这已经训练了音→义的神经回路。对话听力同样需要词库积累，放在 V1.1。</td>
+    </tr>
+    <tr>
+      <td>单独的错题本模块</td>
+      <td><span class="tag tag-cut">砍掉</span></td>
+      <td>间隔复习队列天然就是错题本——答错的词自动高频复习，答对的词自动降低频率。不需要一个单独的"浏览错题"界面。</td>
+    </tr>
+    <tr>
+      <td>复杂的进度图表</td>
+      <td><span class="tag tag-cut">砍掉</span></td>
+      <td>MVP 只保留三个数字：累计词汇量、连续打卡天数、今日完成状态。V1.1 再加正确率曲线。</td>
+    </tr>
+    <tr>
+      <td>成就徽章系统</td>
+      <td><span class="tag tag-keep">保留但精简</span></td>
+      <td>只保留 50/100/200 词里程碑和 7 天连续打卡两个最简单的成就。不搞复杂的积分等级。</td>
+    </tr>
+    <tr>
+      <td>闪卡学习 + 三通路测验</td>
+      <td><span class="tag tag-keep">保留 + 强化</span></td>
+      <td>这是核心引擎，不能砍。而且要加强——闪卡融入发音、例句朗读，测验加入响应时间追踪（卡壳超过 3 秒也算需要复习）。</td>
+    </tr>
+    <tr>
+      <td>智能复习队列</td>
+      <td><span class="tag tag-keep">保留 + 简化</span></td>
+      <td>从 1/2/4/7/15 天间隔简化为 4 个等级：当天→明天→3天后→7天后。对孩子来说足够，对家长来说可理解。</td>
+    </tr>
+    <tr>
+      <td>—</td>
+      <td><span class="tag tag-add">新增</span></td>
+      <td><strong>例句朗读 + 跟读提示。</strong>每个单词的例句都可以点击播放朗读，并提示孩子跟读。在 MVP 中就把"口语发音"的种子埋下，但不做录音评分。</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ====== 10-15 MIN SESSION ====== -->
+<div class="arch-block">
+  <h2>一个 12 分钟的标准学习 Session</h2>
+
+  <div class="session-flow">
+    <div class="flow-step">📖 学新词<span class="flow-time">3 min</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">👀 看义选词<span class="flow-time">2 min</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">👂 听音选词<span class="flow-time">2 min</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">✍️ 拼写填空<span class="flow-time">2 min</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">🔄 复习旧词<span class="flow-time">3 min</span></div>
+  </div>
+
+  <p style="font-size:0.85rem;color:#64748B;text-align:center;margin-top:6px;">5 个阶段，总计约 12 分钟。孩子打开应用 → 自动进入流程 → 做完关闭。</p>
+
+  <h3>阶段一：学新词（约 3 分钟）</h3>
+  <ul>
+    <li>每天推送 5 个新词，属于同一个话题（如"食物"或"旅行"）</li>
+    <li>闪卡模式：正面显示英文 + 自动播放发音，点按翻转显示中文释义 + 例句</li>
+    <li>例句也会自动朗读一遍，孩子可以看到这个词在句子中怎么用</li>
+    <li>底部有"下一个"按钮和一个"跟读"按钮（点击再读一次例句）</li>
+    <li>5 个词过一遍约 3 分钟，每个词约 35 秒</li>
+  </ul>
+
+  <h3>阶段二-四：三通路测验（约 6 分钟）</h3>
+
+  <div class="three-col">
+    <div class="col-card card-sight">
+      <h4>👀 看义选词（2 min）</h4>
+      <p>显示一个英文单词，从 4 个中文选项中选出正确释义。训练"形→义"通路。这是最轻松的，放在第一轮帮孩子建立信心。5 题 × 约 20 秒/题。</p>
+    </div>
+    <div class="col-card card-sound">
+      <h4>👂 听音选词（2 min）</h4>
+      <p>浏览器朗读一个单词（不显示文字），从 4 个英文选项中选出听到的词。训练"音→形"通路。这是孩子最弱的一环，放在第二轮。5 题 × 约 20 秒/题。</p>
+    </div>
+    <div class="col-card card-spell">
+      <h4>✍️ 拼写填空（2 min）</h4>
+      <p>显示中文释义 + 例句（缺目标单词），听发音后输入拼写。训练"义→拼写"通路。这是最难的，放在最后。5 题 × 约 25 秒/题。</p>
+    </div>
+  </div>
+
+  <p style="font-size:0.8rem;color:#64748B;">测验覆盖今天 5 个新词。任何一轮答错的词，自动进入"待复习队列"。响应超过 3 秒的题也算"需要加强"。</p>
+
+  <h3>阶段五：复习旧词（约 3 分钟）</h3>
+  <ul>
+    <li>从复习队列中取出今天该复习的词（通常 5-8 个）</li>
+    <li>混合题型快速过一遍——每个词随机出一种题型（看义/听音/拼写）</li>
+    <li>答对 → 降低复习频率（晋级到下一级间隔），答错 → 重置到今天</li>
+    <li>复习完显示"今日学习完成！"和三个关键数字</li>
+  </ul>
+</div>
+
+<!-- ====== SPACED REPETITION ====== -->
+<div class="arch-block">
+  <h2>四级间隔复习算法</h2>
+
+  <table class="data-table">
+    <tr><th>等级</th><th>含义</th><th>下次复习时间</th><th>如何晋级</th></tr>
+    <tr>
+      <td><strong>L0 · 未掌握</strong></td>
+      <td>今天刚学，或之前答错过</td>
+      <td>当天（立即重新加入今日复习）</td>
+      <td>答对一次 → L1</td>
+    </tr>
+    <tr>
+      <td><strong>L1 · 短时记忆</strong></td>
+      <td>刚记住，还不稳定</td>
+      <td>明天</td>
+      <td>答对 → L2</td>
+    </tr>
+    <tr>
+      <td><strong>L2 · 巩固中</strong></td>
+      <td>隔天还能记住</td>
+      <td>3 天后</td>
+      <td>答对 → L3</td>
+    </tr>
+    <tr>
+      <td><strong>L3 · 已掌握</strong></td>
+      <td>过几天还能记住</td>
+      <td>7 天后</td>
+      <td>答对 → 保持 L3（7天后）</td>
+    </tr>
+  </table>
+
+  <p style="font-size:0.8rem;color:#64748B;">任何等级答错 → 直接掉回 L0，当天重新复习。这个机制确保真正薄弱词不会被遗漏。</p>
+</div>
+
+<!-- ====== DATA MODEL ====== -->
+<div class="arch-block">
+  <h2>数据结构（极简版）</h2>
+
+  <table class="data-table">
+    <tr><th>Key</th><th>字段</th><th>说明</th></tr>
+    <tr>
+      <td><code>wordBank</code></td>
+      <td><code>{ word, meaning, phonetic, example, exampleCn, topic, reviewLevel: 0|1|2|3, nextReview: '2026-07-19', learnedDate, wrongCount }</code></td>
+      <td>每个词的完整状态。reviewLevel 和 nextReview 驱动每日复习队列。</td>
+    </tr>
+    <tr>
+      <td><code>dailyState</code></td>
+      <td><code>{ date, newWords: [], quizResults: {}, reviewedCount, streak }</code></td>
+      <td>今日的学习记录。日期切换后自动归档到 history。</td>
+    </tr>
+    <tr>
+      <td><code>history</code></td>
+      <td><code>[{ date, wordsLearned, wordsReviewed, totalCorrect, totalWrong }]</code></td>
+      <td>每日学习摘要，驱动打卡和趋势。</td>
+    </tr>
+    <tr>
+      <td><code>settings</code></td>
+      <td><code>{ dailyNewWords: 5, voiceRate: 0.9 }</code></td>
+      <td>单日新词数默认 5，家长可以调成 3 或 8。</td>
+    </tr>
+  </table>
+
+  <p style="font-size:0.8rem;color:#64748B;">比 V2 少了 <code>wordLog</code>、<code>readingBank</code>、<code>listeningBank</code>——这些在 V3 都用不到。</p>
+</div>
+
+<!-- ====== MVP SCOPE ====== -->
+<div class="arch-block">
+  <h2>MVP V3 · 交付清单</h2>
+
+  <table class="data-table">
+    <tr><th>#</th><th>功能</th><th>描述</th></tr>
+    <tr><td>1</td><td><strong>首页 Dashboard</strong></td><td>三个数字：累计词汇量、连续打卡天数、今日状态（未开始/进行中/已完成）。一个按钮：开始学习。</td></tr>
+    <tr><td>2</td><td><strong>闪卡学习</strong></td><td>5 张卡片，自动翻页。正面英文 + 自动发音，背面中文 + 例句 + 例句朗读。每张卡片停留由孩子自己控制（点"下一个"）。</td></tr>
+    <tr><td>3</td><td><strong>看义选词测验</strong></td><td>5 题。显示一个英文词 + 4 个中文选项。选对显示绿色勾 + 例句朗读；选错显示红色叉 + 正确答案。</td></tr>
+    <tr><td>4</td><td><strong>听音选词测验</strong></td><td>5 题。浏览器朗读一个词（可重播），4 个英文选项。选对选错同上。每道题自动记录响应时间。</td></tr>
+    <tr><td>5</td><td><strong>拼写填空测验</strong></td><td>5 题。显示中文 + 例句（单词挖空），听发音，输入拼写。不区分大小写。允许一次错误后显示首字母提示。</td></tr>
+    <tr><td>6</td><td><strong>智能复习</strong></td><td>新词测验结束后自动进入复习。从队列中取出今天该复习的词，随机出题。答对晋级，答错重置。</td></tr>
+    <tr><td>7</td><td><strong>完成页</strong></td><td>今日收获总结：学会了 N 个词、复习了 M 个词、正确率。一句鼓励的话。连续打卡天数更新。</td></tr>
+    <tr><td>8</td><td><strong>词库</strong></td><td>内置 200 个 PET 核心词，分 10 个话题（食物、家庭、学校、运动、旅行、天气、健康、购物、动物、日常）。按话题顺序推送。</td></tr>
+    <tr><td>9</td><td><strong>localStorage</strong></td><td>所有数据本地持久化。刷新/关闭不丢失。</td></tr>
+  </table>
+</div>
+
+<!-- ====== UI PRINCIPLES ====== -->
+<div class="arch-block">
+  <h2>UI 设计原则（针对 10-15 分钟场景）</h2>
+
+  <ul>
+    <li><strong>一次只做一件事。</strong>屏幕上永远只有一个核心交互元素，不出现多个按钮争夺注意力。</li>
+    <li><strong>全屏沉浸。</strong>闪卡和测验都是全屏显示，没有顶部导航栏、底部 Tab 栏来分散注意力。进入学习模式后，只有"返回"和"下一个"两个出口。</li>
+    <li><strong>即时反馈 + 不打断。</strong>选对选错后立即显示结果（0.5 秒动画），然后自动进入下一题，不需要点"确认"。</li>
+    <li><strong>手指友好。</strong>所有可点击区域至少 44×44px，按钮间距足够大。适合孩子可能在平板上使用。</li>
+    <li><strong>暖色调 + 圆角 + 大字体。</strong>避免冷冰冰的工具感，让应用看起来像一本"会说话的单词书"。</li>
+    <li><strong>无惩罚、无倒计时。</strong>测验不计时（后台默默记录响应时间但不显示），答错不扣分，鼓励尝试。</li>
+  </ul>
+</div>
+
+<!-- ====== ITERATION ROADMAP ====== -->
+<div class="arch-block">
+  <h2>迭代路线（在 MVP V3 基础上）</h2>
+
+  <table class="data-table">
+    <tr><th>版本</th><th>核心新增</th><th>触发条件</th></tr>
+    <tr>
+      <td><strong>MVP V3</strong></td>
+      <td>闪卡 + 三通路测验 + 四级间隔复习</td>
+      <td>现在就做</td>
+    </tr>
+    <tr>
+      <td><strong>V3.1</strong></td>
+      <td>词汇阅读：用已学 50+ 词构成 3-5 句短文 + 2 道理解题。每天学完新词后可选择是否加练一篇阅读。</td>
+      <td>孩子连续使用 2 周，词库 &gt; 50</td>
+    </tr>
+    <tr>
+      <td><strong>V3.2</strong></td>
+      <td>词汇听力：用已学词汇构成短对话 + 2 道理解题。跟读模式：播放一句 → 孩子跟读 → 播放下一句。</td>
+      <td>孩子连续使用 3 周，词库 &gt; 100</td>
+    </tr>
+    <tr>
+      <td><strong>V4</strong></td>
+      <td>完整 PET 模拟模式 + 家长报告</td>
+      <td>孩子词库 &gt; 300</td>
+    </tr>
+  </table>
+
+  <p style="font-size:0.8rem;color:#64748B;">每个版本之间至少间隔 2 周真实使用，根据孩子的实际数据（哪些词最难记、哪种题型最易错）来决定下一个版本优先做什么。</p>
+</div>
+
+</div>
+</body>
+</html>
