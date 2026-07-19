@@ -276,6 +276,36 @@ body {
 .detail-val { font-size: 0.9rem; }
 .detail-example { background: #FFF8F0; padding: 12px; border-radius: 10px; margin-top: 12px; }
 
+/* ===== READING MODULE ===== */
+.reading-textarea { width: 100%; min-height: 200px; padding: 14px; border: 2px solid #E9ECEF; border-radius: 14px; font-size: 0.95rem; font-family: inherit; line-height: 1.8; resize: vertical; outline: none; transition: border-color 0.15s; background: white; }
+.reading-textarea:focus { border-color: #FF6B6B; }
+.reading-sentence { font-size: 1.3rem; line-height: 1.8; text-align: center; padding: 16px; background: white; border-radius: 14px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); min-height: 80px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; }
+.reading-sentence .word-token { display: inline-block; padding: 2px 6px; border-radius: 6px; transition: all 0.25s; cursor: default; }
+.reading-sentence .word-token.correct { background: #D3F9D8; color: #2B8A3E; }
+.reading-sentence .word-token.wrong { background: #FFE3E3; color: #C92A2A; }
+.reading-sentence .word-token.missed { background: #FFF3BF; color: #E67700; }
+.reading-sentence .word-token.current { outline: 3px solid #FF6B6B; outline-offset: 2px; animation: tokenPulse 1s infinite; }
+@keyframes tokenPulse { 0%,100% { outline-color: #FF6B6B; } 50% { outline-color: #FF8787; } }
+.reading-status { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0; padding: 10px; border-radius: 12px; font-size: 0.9rem; font-weight: 600; }
+.reading-status.listening { background: #FFF0F0; color: #FF6B6B; }
+.reading-status.paused { background: #E9ECEF; color: #495057; }
+.reading-status.done { background: #D3F9D8; color: #2B8A3E; }
+.reading-heard { font-size: 0.85rem; color: #868E96; text-align: center; margin: 4px 0; min-height: 22px; }
+.reading-heard strong { color: #FF6B6B; }
+.reading-report-word { display: inline-block; background: #FFE3E3; color: #C92A2A; padding: 4px 10px; border-radius: 100px; margin: 3px; font-size: 0.85rem; font-family: "SF Mono","Menlo","Consolas",monospace; cursor: pointer; }
+.reading-report-word:hover { background: #FFC9C9; }
+.error-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #FFF5F5; border-radius: 12px; margin-bottom: 6px; gap: 8px; }
+.error-row .error-target { font-family: "SF Mono","Menlo","Consolas",monospace; font-weight: 700; color: #C92A2A; }
+.error-row .error-spoken { font-size: 0.85rem; color: #868E96; }
+.error-row .error-arrow { color: #FF6B6B; font-size: 1.2rem; }
+.text-card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.15s; }
+.text-card:active { transform: scale(0.98); }
+.text-card .text-title { font-weight: 700; font-size: 1rem; margin-bottom: 4px; overflow: hidden; text-overflow:ellipsis; white-space:nowrap; }
+.text-card .text-preview { font-size: 0.82rem; color: #868E96; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.text-card .text-meta { font-size: 0.7rem; color: #ADB5BD; margin-top: 4px; }
+.reading-sentence-num { font-size: 0.8rem; color: #868E96; text-align: center; margin-bottom: 6px; }
+.correction-round-badge { display: inline-block; background: #FF6B6B; color: white; border-radius: 100px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600; }
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 360px) {
   .card-front .word { font-size: 1.8rem; }
@@ -327,7 +357,9 @@ function defaultState(){
     wrongBook: {},
     points: 0,
     petNotifiedLevel: 0,
-    settings: { dailyNewWords: 10, voiceRate: 0.85 }
+    settings: { dailyNewWords: 10, voiceRate: 0.85 },
+    readingTexts: [],
+    readingHistory: []
   };
 }
 function load(){ try{let r=localStorage.getItem(STORE);if(r){let s=JSON.parse(r);s.wordBank.forEach(w=>{if(!w.correctStreak)w.correctStreak=0;});return s;}}catch(e){} return defaultState(); }
@@ -534,6 +566,7 @@ function render(){
     case 'wrongbook': renderWB(); break;
     case 'progress': renderProgress(); break;
     case 'browse': renderBrowse(); break;
+    case 'reading-list': case 'reading-active': case 'reading-report': case 'reading-correction': renderReading(); break;
     default: renderDashboard();
   }
 }
@@ -582,6 +615,7 @@ function renderDashboard(){
     </div>
     <div class="dash-nav-btns">
       <button class="dash-nav-btn" onclick="showProgress()">📊 学习进度</button>
+      <button class="dash-nav-btn" onclick="showReading()">📖 朗读练习</button>
       <button class="dash-nav-btn" onclick="showBrowse()">📚 词汇库</button>
     </div>
   </div>`;
@@ -905,8 +939,312 @@ function showDetail(wid){
 }
 
 // ===== DATA IMPORT/EXPORT =====
-function exportData(){const d={wordBank:A.wordBank,history:A.history,wrongBook:A.wrongBook,points:A.points,settings:A.settings};const j=JSON.stringify(d,null,2);const b=new Blob([j],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`pet-helper-${today()}.json`;a.click();URL.revokeObjectURL(u);}
-function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(d.wordBank){A.wordBank=A.wordBank.map((w,i)=>{const nw=d.wordBank.find(x=>x.id===w.id);return nw?{...w,...nw,word:w.word,meaning:w.meaning,example_en:w.example_en,example_zh:w.example_zh,pos:w.pos,topic:w.topic,level:w.level,phonetic_uk:w.phonetic_uk,phonetic_us:w.phonetic_us}:w;});}if(d.history)A.history=d.history;if(d.wrongBook)A.wrongBook=d.wrongBook;if(d.points!==undefined)A.points=d.points;if(d.settings)A.settings={...A.settings,...d.settings};save();render();alert('数据导入成功！');}catch(x){alert('文件格式错误');}};r.readAsText(f);}
+function exportData(){const d={wordBank:A.wordBank,history:A.history,wrongBook:A.wrongBook,points:A.points,readingTexts:A.readingTexts,readingHistory:A.readingHistory,settings:A.settings};const j=JSON.stringify(d,null,2);const b=new Blob([j],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`pet-helper-${today()}.json`;a.click();URL.revokeObjectURL(u);}
+function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(d.wordBank){A.wordBank=A.wordBank.map((w,i)=>{const nw=d.wordBank.find(x=>x.id===w.id);return nw?{...w,...nw,word:w.word,meaning:w.meaning,example_en:w.example_en,example_zh:w.example_zh,pos:w.pos,topic:w.topic,level:w.level,phonetic_uk:w.phonetic_uk,phonetic_us:w.phonetic_us}:w;});}if(d.history)A.history=d.history;if(d.wrongBook)A.wrongBook=d.wrongBook;if(d.points!==undefined)A.points=d.points;if(d.readingTexts)A.readingTexts=d.readingTexts;if(d.readingHistory)A.readingHistory=d.readingHistory;if(d.settings)A.settings={...A.settings,...d.settings};save();render();alert('数据导入成功！');}catch(x){alert('文件格式错误');}};r.readAsText(f);}
+
+// ===== READING MODULE (READ ALOUD) =====
+let readingState=null, readingRec=null, readingTimer=null;
+
+function showReading(){initDaily();A.dailyState.phase='reading-list';save();renderReading();}
+
+function addReadingText(){
+  const area=document.getElementById('newReadingText');
+  const title=document.getElementById('newReadingTitle');
+  if(!area||!title)return;
+  const text=area.value.trim(),t=title.value.trim();
+  if(!text||text.split(/\s+/).length<5){alert('请至少输入5个单词的课文内容');return;}
+  const sentences=text.split(/(?<=[.!?])\s+/).filter(s=>s.trim().length>0);
+  if(sentences.length===0){alert('未检测到完整句子，请检查标点符号');return;}
+  A.readingTexts.push({id:'rt_'+Date.now(),title:t||'未命名课文',rawText:text,sentences,created:today(),lastRead:null,bestScore:null});
+  save();renderReading();
+}
+
+function deleteReadingText(id){if(confirm('确定删除这篇课文？')){A.readingTexts=A.readingTexts.filter(t=>t.id!==id);save();renderReading();}}
+
+function startReading(textId){
+  const text=A.readingTexts.find(t=>t.id===textId);
+  if(!text)return;
+  readingState={textId,sentences:[...text.sentences],currentIdx:0,totalSentences:text.sentences.length,sentenceResults:[],isCorrection:false};
+  A.dailyState.phase='reading-active';save();renderReading();
+}
+
+function alignWords(target, spoken){
+  const tw=target.split(/\s+/).filter(x=>x.length);const sw=spoken.split(/\s+/).filter(x=>x.length);const m=tw.length,n=sw.length;
+  const dp=Array(m+1).fill(null).map(()=>Array(n+1).fill(0));
+  for(let i=0;i<=m;i++)dp[i][0]=i;
+  for(let j=0;j<=n;j++)dp[0][j]=j;
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++){
+    const a=tw[i-1].toLowerCase().replace(/[^a-z]/g,'');
+    const b=sw[j-1].toLowerCase().replace(/[^a-z]/g,'');
+    const cost=a===b?0:(a.includes(b)||b.includes(a)||a.slice(0,-1)===b||a===b.slice(0,-1)||a+'s'===b||a===b+'s'||a+'ing'===b||a===b+'ing'||a+'ed'===b||a===b+'ed')?0.5:1;
+    dp[i][j]=Math.min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+cost);
+  }
+  let i=m,j=n;const result=[];
+  while(i>0||j>0){
+    if(i>0&&j>0){
+      const a=tw[i-1].toLowerCase().replace(/[^a-z]/g,'');
+      const b=sw[j-1].toLowerCase().replace(/[^a-z]/g,'');
+      const cost=a===b?0:(a.includes(b)||b.includes(a)||a.slice(0,-1)===b)?0.5:1;
+      if(dp[i][j]===dp[i-1][j-1]+cost){result.unshift({target:tw[i-1],spoken:sw[j-1],type:cost===0?'correct':(cost===0.5?'fuzzy':'wrong')});i--;j--;continue;}
+    }
+    if(i>0&&dp[i][j]===dp[i-1][j]+1){result.unshift({target:tw[i-1],spoken:null,type:'missed'});i--;}
+    else if(j>0&&dp[i][j]===dp[i][j-1]+1){result.unshift({target:null,spoken:sw[j-1],type:'extra'});j--;}
+    else break;
+  }
+  return result;
+}
+
+function beep(freq=800,dur=100,vol=0.3){
+  try{const c=new AudioContext();const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=freq;o.type='sine';g.gain.value=vol;o.start();setTimeout(()=>{o.stop();c.close();},dur);}catch(e){}
+}
+
+function renderReading(){
+  const phase=A.dailyState.phase;
+  if(phase==='reading-list')renderReadingList();
+  else if(phase==='reading-active')renderReadingActive();
+  else if(phase==='reading-report')renderReadingReport();
+  else if(phase==='reading-correction')renderReadingCorrection();
+}
+
+function renderReadingList(){
+  const texts=A.readingTexts||[];
+  app.innerHTML=`<div class="page-view">
+    <div class="top-bar"><button class="btn-back" onclick="goDashboard()">←</button><h2 style="flex:1;">\U0001f4d6 朗读练习</h2><div style="width:40px;"></div></div>
+    <p style="color:#868E96;font-size:0.85rem;margin-bottom:12px;text-align:center;">逐句朗读，系统实时监听并标记发音错误</p>
+    <input class="reading-textarea" id="newReadingTitle" placeholder="课文标题（如：PET真题 Passage 1）" style="min-height:auto;padding:10px;margin-bottom:8px;">
+    <textarea class="reading-textarea" id="newReadingText" placeholder="在此粘贴课文原文...&#10;&#10;例如：&#10;The weather was beautiful today. We decided to go for a walk in the park. There were many people enjoying the sunshine."></textarea>
+    <button class="btn-start" style="margin:8px 0 16px;font-size:0.95rem;" onclick="addReadingText()">\U0001f4e5 保存课文并开始</button>
+    ${texts.length===0?'<p style="text-align:center;color:#ADB5BD;">还没有课文，请粘贴第一篇</p>':texts.map(t=>`<div class="text-card" onclick="startReading('${t.id}')">
+      <div class="text-title">${t.title} ${t.bestScore!==null?'⭐'.repeat(t.bestScore>=90?3:t.bestScore>=70?2:1):''}</div>
+      <div class="text-preview">${t.rawText.slice(0,80)}...</div>
+      <div class="text-meta">${t.sentences.length} 句 · 创建于 ${t.created} · ${t.lastRead?'上次 '+t.lastRead+' 最佳 '+t.bestScore+'%':'未读'}</div>
+    </div>`).join('')}
+    ${texts.length>0?`<button class="btn-text" style="color:#FF6B6B;margin-top:8px;" onclick="if(confirm('确定清除所有课文和朗读记录？')){A.readingTexts=[];A.readingHistory=[];save();renderReading();}">\U0001f5d1️ 清除全部课文</button>`:''}
+  </div>`;
+}
+
+function renderReadingActive(){
+  if(!readingState){showReading();return;}
+  const text=A.readingTexts.find(t=>t.id===readingState.textId);
+  if(!text){showReading();return;}
+  const idx=readingState.currentIdx;
+  if(idx>=readingState.totalSentences){finishReading();return;}
+  const sentence=readingState.sentences[idx];
+  const words=sentence.split(/\s+/);
+
+  let tokensHTML=words.map((w,i)=>{
+    const cls=readingState.currentAligned&&readingState.currentAligned[i]?readingState.currentAligned[i].type:'';
+    return`<span class="word-token ${cls}" id="wt_${i}">${w}</span>`;
+  }).join(' ');
+
+  const isCorr=readingState.isCorrection;
+  const statusHTML=readingState.isListening
+    ?'<div class="reading-status listening"><span class="correction-round-badge" style="animation:pulse 1s infinite;">\U0001f534 正在听...</span></div>'
+    :(readingState.sentenceDone?'<div class="reading-status done">✅ 本句完成</div>':'<div class="reading-status paused">⏸️ 点击开始朗读</div>');
+
+  const heardT=readingState.currentTranscript||'';
+  const errCount=readingState.currentAligned?readingState.currentAligned.filter(a=>a.type!=='correct').length:0;
+
+  app.innerHTML=`<div class="page-view">
+    <div class="top-bar"><button class="btn-back" onclick="stopReading();showReading();">←</button><div class="progress-bar"><div class="progress-fill" style="background:#4ECDC4;width:${(idx/readingState.totalSentences)*100}%"></div></div><div class="progress-label">${idx+1}/${readingState.totalSentences}</div></div>
+    ${isCorr?'<div style="text-align:center;margin-bottom:4px;"><span class="correction-round-badge">\U0001f501 纠错轮</span></div>':''}
+    <div class="reading-sentence-num">第 ${idx+1} 句</div>
+    <div class="reading-sentence pop" id="readingSentence">${tokensHTML}</div>
+    <div class="reading-heard">${heardT?'当前听到：<strong>'+heardT+'</strong>':''}</div>
+    ${statusHTML}
+    ${errCount>0?`<p style="text-align:center;color:#C92A2A;font-size:0.85rem;">⚠️ ${errCount} 处与原文不一致</p>`:''}
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      ${!readingState.isListening?`<button class="btn-start" style="background:linear-gradient(135deg,#FF6B6B,#FF8787);flex:1;" onclick="startListening()">\U0001f3a4 开始朗读</button>`:''}
+      ${readingState.isListening?`<button class="btn-start" style="background:#E9ECEF;color:#495057;flex:1;" onclick="stopListening()">⏹️ 停止</button>`:''}
+      ${!readingState.isListening&&readingState.sentenceDone?`<button class="btn-start" style="background:linear-gradient(135deg,#51CF66,#40C057);flex:1;" onclick="nextReadingSentence()">→ 下一句</button>`:''}
+    </div>
+    ${readingState.sentenceDone?`<button class="btn-secondary" style="margin-top:8px;color:#FF6B6B;border-color:#FFE3E3;" onclick="retryCurrentSentence()">\U0001f504 重读本句</button>`:''}
+  </div>`;
+
+  setTimeout(()=>{if(!readingState.sentenceDone)startListening();},600);
+}
+
+function startListening(){
+  if(!readingState)return;
+  const R=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!R){alert('浏览器不支持语音识别，请使用Chrome');return;}
+  if(readingRec){try{readingRec.stop();}catch(e){}}
+  readingRec=new R();readingRec.lang='en-US';readingRec.interimResults=true;readingRec.continuous=true;readingRec.maxAlternatives=3;
+  readingState.isListening=true;readingState.currentTranscript='';readingState.currentAligned=null;readingState.sentenceDone=false;
+  A.dailyState.phase=readingState.isCorrection?'reading-correction':'reading-active';save();renderReadingActive();
+
+  let lastFinal='';
+  readingRec.onresult=function(e){
+    let best='',bestConf=0;
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      for(let j=0;j<e.results[i].length;j++){
+        const t=e.results[i][j].transcript.trim();
+        const c=e.results[i][j].confidence;
+        if(t.length>2&&c>bestConf){best=t;bestConf=c;}
+      }
+    }
+    if(best&&best!==lastFinal){
+      lastFinal=best;
+      readingState.currentTranscript=best;
+      A.dailyState.phase=readingState.isCorrection?'reading-correction':'reading-active';save();
+      const heard=document.querySelector('.reading-heard');
+      if(heard)heard.innerHTML='当前听到：<strong>'+best+'</strong>';
+    }
+  };
+  readingRec.onend=function(){
+    if(readingState&&readingState.isListening)readingState.isListening=false;
+    if(readingState&&readingState.currentTranscript){
+      const sentence=readingState.sentences[readingState.currentIdx];
+      const aligned=alignWords(sentence,readingState.currentTranscript);
+      readingState.currentAligned=aligned;
+      readingState.sentenceDone=true;
+      const errors=aligned.filter(a=>a.type!=='correct');
+      if(errors.length>0)beep(500,60,0.2);
+      else beep(1200,80,0.15);
+      A.dailyState.phase=readingState.isCorrection?'reading-correction':'reading-active';save();renderReadingActive();
+    }
+  };
+  readingRec.onerror=function(e){
+    if(e.error==='no-speech'){try{readingRec.start();}catch(x){readingState.isListening=false;renderReadingActive();}return;}
+    readingState.isListening=false;A.dailyState.phase=readingState.isCorrection?'reading-correction':'reading-active';save();renderReadingActive();
+  };
+  try{readingRec.start();setTimeout(()=>{if(!readingState.currentTranscript&&readingState.isListening){try{readingRec.stop();}catch(e){}readingState.isListening=false;renderReadingActive();}},15000);}catch(x){readingState.isListening=false;renderReadingActive();}
+}
+
+function stopListening(){
+  if(readingRec){try{readingRec.stop();}catch(e){}readingRec=null;}
+  if(readingState)readingState.isListening=false;
+  renderReadingActive();
+}
+
+function nextReadingSentence(){
+  if(!readingState)return;
+  const sentence=readingState.sentences[readingState.currentIdx];
+  const aligned=readingState.currentAligned||[];
+  const errors=aligned.filter(a=>a.type!=='correct'&&a.type!=='fuzzy');
+  const errorWords=errors.filter(a=>a.target).map(a=>({target:a.target,spoken:a.spoken||'未读'}));
+  readingState.sentenceResults.push({index:readingState.currentIdx,sentence,transcript:readingState.currentTranscript||'',aligned,errors:errorWords,errorCount:errors.length});
+  readingState.currentIdx++;readingState.currentTranscript='';readingState.currentAligned=null;readingState.sentenceDone=false;readingState.isListening=false;
+  A.dailyState.phase=readingState.isCorrection?'reading-correction':'reading-active';save();
+  if(readingState.currentIdx>=readingState.totalSentences){finishReading();}else{renderReadingActive();}
+}
+
+function retryCurrentSentence(){
+  readingState.currentTranscript='';readingState.currentAligned=null;readingState.sentenceDone=false;readingState.isListening=false;
+  renderReadingActive();
+}
+
+function stopReading(){
+  if(readingRec){try{readingRec.stop();}catch(e){}readingRec=null;}
+  readingState=null;A.dailyState.phase='reading-list';save();
+}
+
+function finishReading(){
+  stopListening();
+  const results=readingState?.sentenceResults||[];
+  let totalWords=0,totalErrors=0;const allErrorWords=[];
+  results.forEach(r=>{const w=r.sentence.split(/\s+/).length;totalWords+=w;totalErrors+=r.errorCount;r.errors.forEach(e=>allErrorWords.push(e));});
+  const pct=totalWords>0?Math.round((totalWords-totalErrors)/totalWords*100):100;
+
+  const rec={textId:readingState.textId,date:today(),totalSentences:readingState.totalSentences,totalWords,totalErrors,score:pct,errorWords:allErrorWords,results:results.map(r=>({sentence:r.sentence,errorCount:r.errorCount,errors:r.errors}))};
+  A.readingHistory.push(rec);
+
+  const text=A.readingTexts.find(t=>t.id===readingState.textId);
+  if(text){text.lastRead=today();if(text.bestScore===null||pct>text.bestScore)text.bestScore=pct;}
+
+  allErrorWords.forEach(e=>{const w=A.wordBank.find(x=>x.word.toLowerCase()===e.target.toLowerCase());if(w)addWrong(w.id,'朗读:'+(e.spoken||'未读'));});
+
+  if(pct>=90)addPoints(10);
+  else if(pct>=70)addPoints(5);
+
+  const errorSentences=results.filter(r=>r.errorCount>0);
+  readingState.correctionQueue=errorSentences.map(r=>r.index);
+  readingState.correctionIdx=0;
+  readingState.finalResults={score:pct,totalWords,totalErrors,errorSentences};
+
+  save();A.dailyState.phase='reading-report';renderReadingReport();
+}
+
+function renderReadingReport(){
+  const fr=readingState?.finalResults;if(!fr){showReading();return;}
+  const text=A.readingTexts.find(t=>t.id===readingState.textId);
+  let em,msg;
+  if(fr.score>=90){em='\U0001f3c6';msg='朗读非常棒！发音很标准！';}
+  else if(fr.score>=70){em='\U0001f44d';msg='整体不错，注意几个易错单词的发音。';}
+  else if(fr.score>=50){em='\U0001f4da';msg='还有进步空间，多跟读几遍会更好！';}
+  else{em='\U0001f4aa';msg='别灰心，朗读需要多练习。一起进入纠错轮吧！';}
+
+  const errMap={};fr.errorSentences.forEach(s=>{const r=readingState.sentenceResults.find(x=>x.index===s.index);if(r)r.errors.forEach(e=>{errMap[e.target]=errMap[e.target]||{word:e.target,count:0,spoken:e.spoken};errMap[e.target].count++;});});
+  const errorList=Object.values(errMap).sort((a,b)=>b.count-a.count);
+
+  app.innerHTML=`<div class="page-view">
+    <div class="top-bar"><button class="btn-back" onclick="stopReading();showReading();">←</button><h2 style="flex:1;">\U0001f4ca 朗读报告</h2><div style="width:40px;"></div></div>
+    <div class="complete-view pop" style="padding:0;">
+      <div class="emoji">${em}</div><h2>${text?text.title:'朗读完成'}</h2><p class="message">${msg}</p>
+      <div class="complete-stats"><div class="complete-stat"><div class="val green">${fr.totalWords-fr.totalErrors}</div><div class="lbl">正确词数</div></div><div class="complete-stat"><div class="val" style="color:#C92A2A;">${fr.totalErrors}</div><div class="lbl">错误词数</div></div><div class="complete-stat"><div class="val yellow">${fr.score}%</div><div class="lbl">正确率</div></div></div>
+      <p style="color:#636E72;font-size:0.85rem;margin-bottom:12px;">全文共 ${fr.totalWords} 个单词</p>
+      ${errorList.length>0?`<div style="background:white;border-radius:12px;padding:12px;margin-bottom:12px;"><h4 style="margin-bottom:8px;font-size:0.9rem;">⚠️ 易错单词 (${errorList.length}个)</h4><div style="line-height:2;">${errorList.map(e=>`<span class="reading-report-word" onclick="speak('${e.word.replace(/'/g,"\\'")}',0.65)">${e.word} ×${e.count}</span>`).join(' ')}</div></div>`:''}
+      ${fr.errorSentences.length>0?`<button class="btn-extra" onclick="startCorrectionRound()">\U0001f501 纠错轮 (${fr.errorSentences.length} 句需要重读)</button>`:''}
+      <button class="btn-done" onclick="stopReading();showReading();">\U0001f3e0 返回课文列表</button>
+    </div>
+  </div>`;
+}
+
+function startCorrectionRound(){
+  const sentences=readingState.correctionQueue;if(!sentences||sentences.length===0){stopReading();showReading();return;}
+  readingState.currentIdx=sentences[0];readingState.totalSentencesForCorrection=sentences.length;
+  readingState.correctionIdx=0;readingState.isCorrection=true;readingState.currentTranscript='';readingState.currentAligned=null;
+  readingState.sentenceDone=false;readingState.isListening=false;
+  A.dailyState.phase='reading-correction';save();renderReadingCorrection();
+}
+
+function renderReadingCorrection(){
+  const cq=readingState.correctionQueue;const ci=readingState.correctionIdx;
+  if(ci>=cq.length){
+    app.innerHTML=`<div class="page-view">
+      <div class="top-bar"><button class="btn-back" onclick="stopReading();showReading();">←</button><h2 style="flex:1;">✅ 纠错完成</h2><div style="width:40px;"></div></div>
+      <div class="complete-view pop" style="padding:0;">
+        <div class="emoji">\U0001f389</div><h2>纠错完成！</h2><p class="message">所有错误句子都已纠正，继续保持！</p>
+        <button class="btn-done" onclick="stopReading();showReading();">\U0001f3e0 返回课文列表</button>
+      </div>
+    </div>`;
+    return;
+  }
+  const sentIdx=cq[ci];readingState.currentIdx=sentIdx;
+  const sentence=readingState.sentences[sentIdx];
+  const words=sentence.split(/\s+/);
+  const prevResult=readingState.sentenceResults.find(r=>r.index===sentIdx);
+  const prevErrors=prevResult?prevResult.errors:[];
+  let tokensHTML=words.map((w,i)=>{const isErr=prevErrors.find(e=>e.target===w);return`<span class="word-token ${isErr?'wrong':''}" id="wt_${i}">${w}</span>`;}).join(' ');
+
+  const statusHTML=readingState.isListening
+    ?'<div class="reading-status listening"><span class="correction-round-badge" style="animation:pulse 1s infinite;">\U0001f534 正在听...</span></div>'
+    :(readingState.sentenceDone?'<div class="reading-status done">✅ 本句完成</div>':'<div class="reading-status paused">⏸️ 点击开始朗读</div>');
+
+  app.innerHTML=`<div class="page-view">
+    <div class="top-bar"><button class="btn-back" onclick="stopReading();showReading();">←</button><div class="progress-bar"><div class="progress-fill" style="background:#A855F7;width:${(ci/cq.length)*100}%"></div></div><div class="progress-label">纠错 ${ci+1}/${cq.length}</div></div>
+    <div style="text-align:center;margin-bottom:4px;"><span class="correction-round-badge">\U0001f501 纠错轮</span></div>
+    <div class="reading-sentence-num">第 ${sentIdx+1} 句 · 上次错 ${prevResult?prevResult.errorCount:0} 处</div>
+    <div class="reading-sentence pop" id="readingSentence">${tokensHTML}</div>
+    ${prevErrors.length>0?`<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin:8px 0;">${prevErrors.map(e=>`<div class="error-row"><span class="error-target">${e.target}</span> <span class="error-arrow">→</span> <span class="error-spoken">${e.spoken||'未读'}</span></div>`).join('')}</div>`:''}
+    <div class="reading-heard">${readingState.currentTranscript?'当前听到：<strong>'+readingState.currentTranscript+'</strong>':''}</div>
+    ${statusHTML}
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      ${!readingState.isListening?`<button class="btn-start" style="background:linear-gradient(135deg,#A855F7,#7C3AED);flex:1;" onclick="startListening()">\U0001f3a4 重新朗读</button>`:''}
+      ${readingState.isListening?`<button class="btn-start" style="background:#E9ECEF;color:#495057;flex:1;" onclick="stopListening()">⏹️ 停止</button>`:''}
+    </div>
+    ${readingState.sentenceDone?`<button class="btn-start" style="background:linear-gradient(135deg,#51CF66,#40C057);margin-top:8px;" onclick="nextCorrectionSentence()">→ ${ci<cq.length-1?'下一句':'完成纠错'}</button>`:''}
+  </div>`;
+
+  setTimeout(()=>{if(!readingState.sentenceDone)startListening();},600);
+}
+
+function nextCorrectionSentence(){
+  if(!readingState)return;
+  readingState.correctionIdx++;readingState.currentTranscript='';readingState.currentAligned=null;readingState.sentenceDone=false;readingState.isListening=false;
+  if(readingState.correctionIdx>=readingState.correctionQueue.length){A.dailyState.phase='reading-correction';save();renderReadingCorrection();}else{renderReadingCorrection();}
+}
+
 
 // ===== NAVIGATION =====
 function goDashboard(){stopVoice('spellMic');initDaily();save();quizAnswered=false;rvAnswered=false;cardFlipped=false;spellAttempts=0;A.dailyState.phase=A.dailyState.date===today()&&(A.dailyState.newWordIds.length>0||A.dailyState.reviewQueue.length>0)?null:'complete';renderDashboard();}
@@ -919,6 +1257,8 @@ function init(){
   if(A.petNotifiedLevel===undefined)A.petNotifiedLevel=0;
   // Migration: ensure all words have correctStreak
   A.wordBank.forEach(w=>{if(w.correctStreak===undefined)w.correctStreak=0;});
+  if(!A.readingTexts)A.readingTexts=[];
+  if(!A.readingHistory)A.readingHistory=[];
   initDaily();render();
 }
 init();
