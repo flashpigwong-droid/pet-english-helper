@@ -385,31 +385,131 @@ function removeWrong(wordId){delete A.wrongBook[wordId];save();}
 function speak(text,rate){return new Promise(r=>{if(!window.speechSynthesis){r();return;}window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=rate||0.85;u.onend=r;u.onerror=r;window.speechSynthesis.speak(u);});}
 
 // ============================================================
-// VOICE INPUT
+// VOICE INPUT — letter-by-letter spelling recognition
 // ============================================================
-let voiceRec=null, voiceTimer=null;
+let voiceRec=null, voiceTimer=null, voiceRetryCount=0;
 function startVoice(id,micId){
   const mic=document.getElementById(micId),inp=document.getElementById(id);
   if(!mic||!inp)return;
   const R=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!R){mic.classList.add('hidden');inp.placeholder='浏览器不支持语音';inp.focus();return;}
   if(voiceRec){voiceRec.stop();return;}
-  voiceRec=new R();voiceRec.lang='en-US';voiceRec.interimResults=true;voiceRec.continuous=true;voiceRec.maxAlternatives=1;
+  voiceRec=new R();
+  // Use single-shot recognition per letter group — NOT continuous
+  voiceRec.lang='en-US';
+  voiceRec.interimResults=true;
+  voiceRec.continuous=false;
+  voiceRec.maxAlternatives=5;
   mic.classList.add('listening');mic.textContent='⏺️';
-  let last='';
+  voiceRetryCount=0;
+
   voiceRec.onresult=function(e){
     clearTimeout(voiceTimer);
-    let t='';for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i][0].confidence>0.3)t+=e.results[i][0].transcript;}
-    const letters=t.replace(/[^a-zA-Z]/g,'').toLowerCase();
-    if(letters.length>0&&letters!==last){last=letters;const ex=inp.value.replace(/[^a-zA-Z]/g,'').toLowerCase();inp.value=dedupe(ex+letters);}
-    voiceTimer=setTimeout(()=>{if(voiceRec)voiceRec.stop();},2000);
+    // Collect ALL alternatives from ALL results, pick the best one
+    let best='',bestConf=0;
+    for(let i=0;i<e.results.length;i++){
+      for(let j=0;j<e.results[i].length;j++){
+        const raw=e.results[i][j].transcript;
+        const conf=e.results[i][j].confidence;
+        // Try to interpret as letters
+        const letters=speechToLetters(raw);
+        if(letters.length>0&&conf>bestConf){best=letters;bestConf=conf;}
+      }
+    }
+    // If we got a good result, use it (replace, don't append)
+    if(best.length>0&&bestConf>0.1){
+      inp.value=best;
+    }
+    // Auto-stop after 1.5s of silence
+    voiceTimer=setTimeout(()=>{if(voiceRec)voiceRec.stop();},1500);
   };
-  voiceRec.onerror=function(e){if(e.error==='no-speech'){try{voiceRec.start();}catch(x){stopVoice(micId);}return;}if(e.error==='aborted')return;stopVoice(micId);};
-  voiceRec.onend=function(){stopVoice(micId);inp.focus();};
+  voiceRec.onerror=function(e){
+    if(e.error==='no-speech'){
+      voiceRetryCount++;
+      if(voiceRetryCount<5){try{voiceRec.start();}catch(x){stopVoice(micId);}return;}
+    }
+    if(e.error==='aborted')return;
+    stopVoice(micId);
+  };
+  voiceRec.onend=function(){
+    // If input is still empty and we haven't retried too much, restart
+    if(inp.value.trim()===''&&voiceRetryCount<8){
+      voiceRetryCount++;
+      try{voiceRec=new R();voiceRec.lang='en-US';voiceRec.interimResults=true;voiceRec.continuous=false;voiceRec.maxAlternatives=5;
+        voiceRec.onresult=voiceRec.onresult;voiceRec.onerror=voiceRec.onerror;voiceRec.onend=voiceRec.onend;
+        voiceRec.start();return;}catch(x){}
+    }
+    stopVoice(micId);inp.focus();
+  };
   try{voiceRec.start();}catch(x){stopVoice(micId);}
 }
-function dedupe(s){if(s.length<=2)return s;let r=s[0];for(let i=1;i<s.length;i++){if(s[i]!==s[i-1])r+=s[i];}return r;}
-function stopVoice(micId){clearTimeout(voiceTimer);voiceTimer=null;const m=document.getElementById(micId);if(m){m.classList.remove('listening');m.textContent='🎤';}if(voiceRec){try{voiceRec.stop();}catch(e){}voiceRec=null;}}
+
+// Map speech-to-text results to actual letters
+// SpeechRecognition hears "A B C" as "a b c" or "abc"
+function speechToLetters(raw){
+  const s=raw.toLowerCase().trim();
+  if(!s)return'';
+
+  // Phonetic letter names that speech engine might return as words
+  const phoneticMap={
+    'a':1,'ay':1,'eh':1,'hey':1,'b':1,'bee':1,'be':1,'c':1,'sea':1,'see':1,'si':1,
+    'd':1,'dee':1,'the':0,'e':1,'ee':1,'f':1,'eff':1,'if':1,'g':1,'gee':1,'ji':1,
+    'h':1,'aitch':1,'age':1,'each':1,'i':1,'eye':1,'ai':1,'j':1,'jay':1,'k':1,'kay':1,'okay':1,
+    'l':1,'el':1,'elle':1,'m':1,'em':1,'n':1,'en':1,'and':1,'in':1,'o':1,'oh':1,'p':1,'pea':1,'pee':1,
+    'q':1,'cue':1,'queue':1,'r':1,'are':1,'our':1,'s':1,'ess':1,'yes':1,'t':1,'tea':1,'tee':1,'u':1,'you':1,'ewe':1,
+    'v':1,'vee':1,'we':1,'w':1,'double u':1,'double you':1,'x':1,'ex':1,'eggs':1,'y':1,'why':1,'z':1,'zed':1,'zee':1,
+    // Common words that contain letters
+    'double':1,'you':1,'space':1,
+    // Numbers that get confused as words
+    'one':1,'1':1,'two':1,'2':1,'to':1,'too':1,'for':1,'four':1,'4':1,
+  };
+
+  // Strategy 1: If the speech is just space-separated single letters (like "a p p l e")
+  const parts=s.split(/\s+/);
+  const allSingleLetters=parts.every(p=>p.length===1&&p>='a'&&p<='z');
+  if(allSingleLetters)return parts.join('');
+
+  // Strategy 2: If speech is one long word, it might be letter names run together
+  // or it might be the actual word pronounced — try phonetic decomposition
+  // First check if the input looks like a clean word (not letter names)
+  const looksLikeWord=s.match(/^[a-z]{2,15}$/);
+  if(looksLikeWord){
+    // It might be the actual word — return it directly so user can verify
+    // But also try to detect if it's letter names
+    // Let's check if any part matches a known phonetic letter name
+    const hasPhoneticParts=parts.some(p=>phoneticMap[p]);
+    if(!hasPhoneticParts)return s;
+  }
+
+  // Strategy 3: Build from phonetic letter names
+  let result='';
+  let i=0;
+  const tokens=s.split(/\s+/);
+  while(i<tokens.length){
+    const t=tokens[i];
+    // Check for "double X" pattern (e.g. "double u" → w)
+    if(t==='double'&&i+1<tokens.length){
+      const next=tokens[i+1];
+      if(next==='u'||next==='you')result+='w';
+      else if(next.length===1)result+=next+next;
+      else{
+        const mapped=phoneticMap[next];
+        if(mapped===1)result+=next+next;
+      }
+      i+=2;continue;
+    }
+    // Single letter
+    if(t.length===1&&t>='a'&&t<='z'){result+=t;i++;continue;}
+    // Known phonetic name
+    if(t in phoneticMap){result+=t[0];i++;continue;}
+    // Long word — try to extract letters
+    for(let j=0;j<t.length;j++){if(t[j]>='a'&&t[j]<='z')result+=t[j];}
+    i++;
+  }
+  return result;
+}
+
+function stopVoice(micId){clearTimeout(voiceTimer);voiceTimer=null;voiceRetryCount=0;const m=document.getElementById(micId);if(m){m.classList.remove('listening');m.textContent='🎤';}if(voiceRec){try{voiceRec.stop();}catch(e){}voiceRec=null;}}
 
 // ============================================================
 // RENDER ENGINE
