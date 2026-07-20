@@ -966,11 +966,17 @@ function startReading(textId){
   while((m=re.exec(text.rawText))!==null){
     if(m[1])allWords.push({token:m[1],isPunct:false,isSpace:false,id:'rv_'+allWords.length});
     else if(m[2])allWords.push({token:m[2],isPunct:true,isSpace:false,id:'rv_'+allWords.length});
-    else if(m[3])allWords.push({token:m[3],isPunct:false,isSpace:true,id:'rv_'+allWords.length});
+    else if(m[3]){
+      const s=m[3];
+      // Detect paragraph break: \n\n or more
+      if((s.match(/\n/g)||[]).length>=2)allWords.push({token:s,isPara:true,isSpace:true,id:'rv_'+allWords.length});
+      else allWords.push({token:s,isPunct:false,isSpace:true,id:'rv_'+allWords.length});
+    }
   }
   readingState={
     textId,allWords,
     contentWords:allWords.filter(w=>!w.isPunct&&!w.isSpace),
+    paragraphIndices:allWords.filter(w=>w.isPara).map(w=>allWords.indexOf(w)),
     // Alignment state
     bestTranscript:'',lastCorrectIdx:-1,currentHighlight:0,
     isListening:false,silenceStart:null,
@@ -1043,11 +1049,12 @@ function alignGlobal(allWords, spokenText) {
     break;
   }
 
-  // Find last correct
+  // Find last correct — ensure ALL content words before it are checked
   let lastCorrect=-1;
   for(let i=0;i<results.length;i++){
     if(results[i]&&(results[i].type==='correct'||results[i].type==='fuzzy'))lastCorrect=i;
   }
+  // Extend: if lastCorrect is at position N, also check if N+1 is null (guaranteed non-content) — it's fine
   return {results,lastCorrect};
 }
 
@@ -1093,7 +1100,7 @@ function renderReadingActive(){
     const w=aw[i];let c='';
     if(w._type)c=w._type==='correct'||w._type==='fuzzy'?'correct':(w._type==='wrong'?'wrong':(w._type==='skipped'?'skipped':''));
     if(i===readingState.currentHighlight)c+=' current';
-    if(w.isSpace){h+=' ';continue;}
+    if(w.isSpace){h+=w.isPara?'<br><br>':' ';continue;}
     if(w.isPunct){h+='<span class="word-token" id="'+w.id+'">'+w.token+'</span>';continue;}
     h+='<span class="word-token '+c+'" id="'+w.id+'">'+w.token+'</span>';
   }
@@ -1159,24 +1166,28 @@ function startReadingListen(){
   let silenceTimer=null;
 
   readingRec.onresult=function(e){
-    // Build the best available transcript from ALL results
-    let fullText='';
+    // Build transcript from ALL results — both isFinal and interim
+    // Key fix: don't skip non-final results; they contain the latest spoken words
+    let transcript='';
     for(let i=0;i<e.results.length;i++){
       const r=e.results[i];
       let best='',bestConf=0;
       for(let j=0;j<r.length;j++){if(r[j].confidence>bestConf){best=r[j].transcript;bestConf=r[j].confidence;}}
-      if(best)fullText+=(fullText?' ':'')+best;
+      if(best){
+        // For non-final results, always take the latest (it may be corrected)
+        // For final results, accumulate
+        if(r.isFinal){transcript+=(transcript?' ':'')+best;}
+        else{transcript=best;} // interim replaces previous interim
+      }
     }
-    fullText=fullText.trim().toLowerCase();
-    if(!fullText)return;
-    readingState.bestTranscript=fullText;
+    if(!transcript)return;
+    transcript=transcript.trim().toLowerCase();
+    readingState.bestTranscript=transcript;
     readingState.silenceStart=null;
     clearTimeout(silenceTimer);
 
-    // === GLOBAL ALIGNMENT — runs on EVERY result ===
-    const {results,lastCorrect}=alignGlobal(readingState.allWords,fullText);
-
-    // Apply results to word tokens
+    // Run global alignment on full transcript
+    const {results,lastCorrect}=alignGlobal(readingState.allWords,transcript);
     let errBeeped=false;
     for(let i=0;i<results.length;i++){
       const w=readingState.allWords[i];
@@ -1187,23 +1198,39 @@ function startReadingListen(){
       if(w._type==='wrong'||w._type==='skipped'){
         if(!readingState.errorWords[w.id])readingState.errorWords[w.id]={target:w.token,spoken:'',count:0};
         readingState.errorWords[w.id].count++;
-        if(w._type==='wrong')readingState.errorWords[w.id].spoken=fullText.split(/\s+/).slice(0,results.filter(x=>x&&x.type==='correct').length+1).pop()||'??';
+        if(w._type==='wrong')readingState.errorWords[w.id].spoken=transcript.split(/\s+/).slice(0,results.filter(x=>x&&x.type==='correct').length+1).pop()||'??';
       }
     }
-
-    // Update positions (never go backward)
     readingState.lastCorrectIdx=Math.max(readingState.lastCorrectIdx,lastCorrect);
     readingState.currentHighlight=readingState.lastCorrectIdx+1;
     if(readingState.currentHighlight>=readingState.allWords.length)readingState.currentHighlight=readingState.allWords.length-1;
 
     // Update DOM
-    updateReadingFullDOM(readingState.allWords,fullText);
+    updateReadingFullDOM(readingState.allWords,transcript);
     save();
-
     silenceTimer=setTimeout(checkSilenceAutoStop,5000);
   };
 
   readingRec.onend=function(){
+    // Force final alignment with whatever transcript we have
+    if(readingState&&readingState.bestTranscript){
+      const transcript=readingState.bestTranscript;
+      const {results,lastCorrect}=alignGlobal(readingState.allWords,transcript);
+      for(let i=0;i<results.length;i++){
+        const w=readingState.allWords[i];
+        if(!results[i]||w.isPunct||w.isSpace)continue;
+        w._type=results[i].type;
+        if(w._type==='wrong'||w._type==='skipped'){
+          if(!readingState.errorWords[w.id])readingState.errorWords[w.id]={target:w.token,spoken:'',count:0};
+          readingState.errorWords[w.id].count++;
+        }
+      }
+      readingState.lastCorrectIdx=Math.max(readingState.lastCorrectIdx,lastCorrect);
+      readingState.currentHighlight=readingState.lastCorrectIdx+1;
+      if(readingState.currentHighlight>=readingState.allWords.length)readingState.currentHighlight=readingState.allWords.length-1;
+      updateReadingFullDOM(readingState.allWords,transcript);
+      save();
+    }
     readingRec=null;
     if(!readingState)return;
     readingState.isListening=false;
