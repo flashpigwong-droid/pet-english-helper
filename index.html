@@ -408,7 +408,7 @@ function addPoints(pts){
   const old=getPetLevel(A.points); A.points=(A.points||0)+pts; pendingPoints+=pts;
   const n=getPetLevel(A.points); if(n>old&&n>(A.petNotifiedLevel||0)){petLeveledUp=true;A.petNotifiedLevel=n;}
 }
-function addWrong(wordId,spelling){const w=A.wrongBook;if(!w[wordId])w[wordId]={count:0,lastWrong:Date.now(),attempts:[]};w[wordId].count++;w[wordId].lastWrong=Date.now();if(spelling&&!w[wordId].attempts.includes(spelling)){w[wordId].attempts.unshift(spelling);if(w[wordId].attempts.length>5)w[wordId].attempts.pop();}save();}
+function addWrong(wordId,spelling,source){const w=A.wrongBook;if(!w[wordId])w[wordId]={count:0,lastWrong:Date.now(),attempts:[],sources:{}};w[wordId].count++;w[wordId].lastWrong=Date.now();if(spelling&&!w[wordId].attempts.includes(spelling)){w[wordId].attempts.unshift(spelling);if(w[wordId].attempts.length>5)w[wordId].attempts.pop();}if(source){const s=w[wordId].sources;if(!s[source])s[source]=0;s[source]++;}save();}
 function removeWrong(wordId){delete A.wrongBook[wordId];save();}
 
 // ============================================================
@@ -844,20 +844,39 @@ function renderComplete(){
 function openWB(){initDaily();A.dailyState.phase='wrongbook';save();renderWB();}
 function renderWB(){
   const mks=A.wrongBook;const ids=Object.keys(mks);
-  const words=ids.map(id=>{const w=A.wordBank.find(x=>x.id===id);return w?{...w,mistakeCount:mks[id].count,attempts:mks[id].attempts||[]}:null;}).filter(Boolean).sort((a,b)=>b.mistakeCount-a.mistakeCount);
+  const words=ids.map(id=>{
+    const w=A.wordBank.find(x=>x.id===id);
+    return w?{...w,mistakeCount:mks[id].count,attempts:mks[id].attempts||[],sources:mks[id].sources||{}}:null;
+  }).filter(Boolean).sort((a,b)=>b.mistakeCount-a.mistakeCount);
   const total=words.reduce((s,w)=>s+w.mistakeCount,0);
+
+  // Category counts
+  const spellCount=words.filter(w=>w.sources['拼写']).length;
+  const readCount=words.filter(w=>w.sources['朗读']).length;
+  const comboCount=words.filter(w=>w.sources['拼写']&&w.sources['朗读']).length;
+
   app.innerHTML=`<div class="page-view">
     <div class="top-bar"><button class="btn-back" onclick="goDashboard()">←</button><h2 style="flex:1;">📕 错词本</h2><div style="width:40px;"></div></div>
     ${words.length===0?`<div class="page-empty"><div class="icon">🌟</div><p>还没有错题！继续保持！</p></div>`:`
-      <div class="wrongbook-stats">共 <strong>${words.length}</strong> 个单词，错误 <strong>${total}</strong> 次</div>
-      <div class="wrongbook-list">${words.map((w,i)=>`<div class="wrongbook-item"><div><div class="wrong-word">${w.word} <span class="wrong-count">错${w.mistakeCount}次</span></div><div class="wrong-meaning">${w.meaning} · ${w.pos}${w.attempts.length>0?' · 曾拼成: '+w.attempts.slice(0,2).join('、'):''}</div></div><div style="display:flex;gap:6px;align-items:center;"><button class="speaker-btn" style="width:36px;height:36px;font-size:1rem;margin:0;" onclick="speak('${w.word.replace(/'/g,"\\'")}',0.65)">🔊</button><button class="btn-retry" onclick="quickRetry('${w.id}')">🔄</button><button class="btn-retry" style="background:#E9ECEF;color:#495057;" onclick="removeWrong('${w.id}');renderWB();">✕</button></div></div>`).join('')}</div>
+      <div class="wrongbook-stats">共 <strong>${words.length}</strong> 个错词，累计 <strong>${total}</strong> 次错误</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;justify-content:center;">
+        <span style="background:#FFF0F0;color:#C92A2A;padding:4px 12px;border-radius:100px;font-size:0.75rem;font-weight:600;">📝 拼写 ${spellCount}</span>
+        <span style="background:#FFF3BF;color:#E67700;padding:4px 12px;border-radius:100px;font-size:0.75rem;font-weight:600;">📖 朗读 ${readCount}</span>
+        ${comboCount>0?`<span style="background:#F3E8FF;color:#7C3AED;padding:4px 12px;border-radius:100px;font-size:0.75rem;font-weight:600;">🔀 两者 ${comboCount}</span>`:''}
+      </div>
+      <div class="wrongbook-list">${words.map((w,i)=>`<div class="wrongbook-item"><div>
+        <div class="wrong-word">${w.word} <span class="wrong-count">错${w.mistakeCount}次</span></div>
+        <div class="wrong-meaning">${w.meaning} · ${w.pos}</div>
+        <div style="display:flex;gap:4px;margin-top:2px;">
+          ${w.sources['拼写']?`<span style="font-size:0.65rem;background:#FFE3E3;color:#C92A2A;padding:1px 6px;border-radius:4px;">拼${w.sources['拼写']}次</span>`:''}
+          ${w.sources['朗读']?`<span style="font-size:0.65rem;background:#FFF3BF;color:#E67700;padding:1px 6px;border-radius:4px;">读${w.sources['朗读']}次</span>`:''}
+        </div>
+        ${w.attempts.length>0?`<div style="font-size:0.7rem;color:#ADB5BD;margin-top:2px;">曾拼: ${w.attempts.slice(0,2).join('、')}</div>`:''}
+      </div><div style="display:flex;gap:6px;align-items:center;"><button class="speaker-btn" style="width:36px;height:36px;font-size:1rem;margin:0;" onclick="speak('${w.word.replace(/'/g,"\\'")}',0.65)">🔊</button><button class="btn-retry" onclick="removeWrong('${w.id}');renderWB();" style="background:#E9ECEF;color:#495057;">✕</button></div></div>`).join('')}</div>
       <button class="btn-start" style="margin-top:12px;background:linear-gradient(135deg,#FF6B6B,#FF8787);" onclick="retryAllWrong()">🔁 复习全部错题</button>
     `}
   </div>`;
-  if(words.length>0)setTimeout(()=>quickRetry(words[0].id),200);
 }
-function quickRetry(wordId){const w=A.wordBank.find(x=>x.id===wordId);if(!w)return;quizWordId=wordId;speak(w.word,0.65);render();}
-function retryAllWrong(){const ids=Object.keys(A.wrongBook);if(ids.length===0)return;A.dailyState.phase='review';A.dailyState.reviewQueue=ids;A.dailyState.reviewIdx=0;A.dailyState.reviewResults=[];save();render();}
 
 // ===== PROGRESS PAGE =====
 function showProgress(){initDaily();A.dailyState.phase='progress';save();renderProgress();}
@@ -1166,75 +1185,40 @@ function startReadingListen(){
   let silenceTimer=null;
 
   readingRec.onresult=function(e){
-    // Build transcript from ALL results — both isFinal and interim
-    // Key fix: don't skip non-final results; they contain the latest spoken words
-    let transcript='';
+    // Build the most complete transcript possible
+    // Strategy: accumulate ALL final results, then append latest interim at end
+    let base='';
+    let latestInterim='';
     for(let i=0;i<e.results.length;i++){
       const r=e.results[i];
       let best='',bestConf=0;
       for(let j=0;j<r.length;j++){if(r[j].confidence>bestConf){best=r[j].transcript;bestConf=r[j].confidence;}}
-      if(best){
-        // For non-final results, always take the latest (it may be corrected)
-        // For final results, accumulate
-        if(r.isFinal){transcript+=(transcript?' ':'')+best;}
-        else{transcript=best;} // interim replaces previous interim
-      }
+      if(!best)continue;
+      if(r.isFinal){base+=(base?' ':'')+best;}
+      else{latestInterim=best;} // only keep latest interim
     }
+    // Append latest interim at the end — it represents the most recent speech
+    let transcript=(base+' '+latestInterim).trim().toLowerCase().replace(/\s+/g,' ');
     if(!transcript)return;
-    transcript=transcript.trim().toLowerCase();
     readingState.bestTranscript=transcript;
     readingState.silenceStart=null;
     clearTimeout(silenceTimer);
 
-    // Run global alignment on full transcript
-    const {results,lastCorrect}=alignGlobal(readingState.allWords,transcript);
-    let errBeeped=false;
-    for(let i=0;i<results.length;i++){
-      const w=readingState.allWords[i];
-      if(!results[i]||w.isPunct||w.isSpace)continue;
-      const oldType=w._type;
-      w._type=results[i].type;
-      if(w._type==='wrong'&&oldType!=='wrong'&&!errBeeped){beep(350,50,0.15);errBeeped=true;}
-      if(w._type==='wrong'||w._type==='skipped'){
-        if(!readingState.errorWords[w.id])readingState.errorWords[w.id]={target:w.token,spoken:'',count:0};
-        readingState.errorWords[w.id].count++;
-        if(w._type==='wrong')readingState.errorWords[w.id].spoken=transcript.split(/\s+/).slice(0,results.filter(x=>x&&x.type==='correct').length+1).pop()||'??';
-      }
-    }
-    readingState.lastCorrectIdx=Math.max(readingState.lastCorrectIdx,lastCorrect);
-    readingState.currentHighlight=readingState.lastCorrectIdx+1;
-    if(readingState.currentHighlight>=readingState.allWords.length)readingState.currentHighlight=readingState.allWords.length-1;
-
-    // Update DOM
-    updateReadingFullDOM(readingState.allWords,transcript);
-    save();
+    processAlignment(transcript);
     silenceTimer=setTimeout(checkSilenceAutoStop,5000);
   };
 
   readingRec.onend=function(){
-    // Force final alignment with whatever transcript we have
+    // CRITICAL FIX: after onend, SpeechRecognition may have additional results
+    // that were not yet delivered via onresult. We do one final alignment.
+    // If we have a transcript, run one last alignment pass.
     if(readingState&&readingState.bestTranscript){
-      const transcript=readingState.bestTranscript;
-      const {results,lastCorrect}=alignGlobal(readingState.allWords,transcript);
-      for(let i=0;i<results.length;i++){
-        const w=readingState.allWords[i];
-        if(!results[i]||w.isPunct||w.isSpace)continue;
-        w._type=results[i].type;
-        if(w._type==='wrong'||w._type==='skipped'){
-          if(!readingState.errorWords[w.id])readingState.errorWords[w.id]={target:w.token,spoken:'',count:0};
-          readingState.errorWords[w.id].count++;
-        }
-      }
-      readingState.lastCorrectIdx=Math.max(readingState.lastCorrectIdx,lastCorrect);
-      readingState.currentHighlight=readingState.lastCorrectIdx+1;
-      if(readingState.currentHighlight>=readingState.allWords.length)readingState.currentHighlight=readingState.allWords.length-1;
-      updateReadingFullDOM(readingState.allWords,transcript);
-      save();
+      processAlignment(readingState.bestTranscript);
     }
     readingRec=null;
     if(!readingState)return;
     readingState.isListening=false;
-    if(readingState.mode==='auto')finishReading();
+    if(readingState.mode==='auto'){setTimeout(()=>finishReading(),2000);}
     else renderReadingActive();
   };
 
@@ -1248,6 +1232,30 @@ function startReadingListen(){
   };
 
   try{readingRec.start();}catch(x){readingState.isListening=false;renderReadingActive();}
+}
+
+// Shared alignment processing (called from onresult and onend)
+function processAlignment(transcript){
+  if(!readingState)return;
+  const {results,lastCorrect}=alignGlobal(readingState.allWords,transcript);
+  let errBeeped=false;
+  for(let i=0;i<results.length;i++){
+    const w=readingState.allWords[i];
+    if(!results[i]||w.isPunct||w.isSpace)continue;
+    const oldType=w._type;
+    w._type=results[i].type;
+    if(w._type==='wrong'&&oldType!=='wrong'&&!errBeeped){beep(350,50,0.15);errBeeped=true;}
+    if(w._type==='wrong'||w._type==='skipped'){
+      if(!readingState.errorWords[w.id])readingState.errorWords[w.id]={target:w.token,spoken:'',count:0};
+      readingState.errorWords[w.id].count++;
+      if(w._type==='wrong')readingState.errorWords[w.id].spoken=transcript.split(/\s+/).slice(0,results.filter(x=>x&&x.type==='correct').length+1).pop()||'??';
+    }
+  }
+  readingState.lastCorrectIdx=Math.max(readingState.lastCorrectIdx,lastCorrect);
+  readingState.currentHighlight=readingState.lastCorrectIdx+1;
+  if(readingState.currentHighlight>=readingState.allWords.length)readingState.currentHighlight=readingState.allWords.length-1;
+  updateReadingFullDOM(readingState.allWords,transcript);
+  save();
 }
 
 function checkSilenceAutoStop(){
