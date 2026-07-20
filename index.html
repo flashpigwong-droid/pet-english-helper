@@ -279,8 +279,8 @@ body {
 /* ===== READING MODULE ===== */
 .reading-textarea { width: 100%; min-height: 200px; padding: 14px; border: 2px solid #E9ECEF; border-radius: 14px; font-size: 0.95rem; font-family: inherit; line-height: 1.8; resize: vertical; outline: none; transition: border-color 0.15s; background: white; }
 .reading-textarea:focus { border-color: #FF6B6B; }
-.reading-full-text-wrap { position: relative; max-height: 55vh; overflow-y: auto; overflow-x: hidden; background: white; border-radius: 14px; padding: 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); font-size: 1.15rem; line-height: 2.2; scroll-behavior: smooth; word-wrap: break-word; word-break: break-word; }
-.reading-full-text-wrap .word-token { display: inline; padding: 2px 5px; border-radius: 5px; transition: background 0.2s, color 0.2s; cursor: default; margin: 0 1px; white-space: normal; }
+.reading-full-text-wrap { position: relative; max-height: 55vh; overflow-y: auto; overflow-x: hidden; background: white; border-radius: 14px; padding: 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); font-size: 1.15rem; line-height: 2.2; scroll-behavior: smooth; word-break: normal; overflow-wrap: break-word; hyphens: manual; }
+.reading-full-text-wrap .word-token { display: inline-block; padding: 2px 5px; border-radius: 5px; transition: background 0.2s, color 0.2s; cursor: default; margin: 0 1px; white-space: normal; }
 .reading-full-text-wrap .word-token.correct { background: #D3F9D8; color: #2B8A3E; }
 .reading-full-text-wrap .word-token.wrong { background: #FFE3E3; color: #C92A2A; }
 .reading-full-text-wrap .word-token.skipped { background: #FFF3BF; color: #E67700; }
@@ -942,7 +942,7 @@ function showDetail(wid){
 function exportData(){const d={wordBank:A.wordBank,history:A.history,wrongBook:A.wrongBook,points:A.points,readingTexts:A.readingTexts,readingHistory:A.readingHistory,settings:A.settings};const j=JSON.stringify(d,null,2);const b=new Blob([j],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`pet-helper-${today()}.json`;a.click();URL.revokeObjectURL(u);}
 function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(d.wordBank){A.wordBank=A.wordBank.map((w,i)=>{const nw=d.wordBank.find(x=>x.id===w.id);return nw?{...w,...nw,word:w.word,meaning:w.meaning,example_en:w.example_en,example_zh:w.example_zh,pos:w.pos,topic:w.topic,level:w.level,phonetic_uk:w.phonetic_uk,phonetic_us:w.phonetic_us}:w;});}if(d.history)A.history=d.history;if(d.wrongBook)A.wrongBook=d.wrongBook;if(d.points!==undefined)A.points=d.points;if(d.readingTexts)A.readingTexts=d.readingTexts;if(d.readingHistory)A.readingHistory=d.readingHistory;if(d.settings)A.settings={...A.settings,...d.settings};save();render();alert('数据导入成功！');}catch(x){alert('文件格式错误');}};r.readAsText(f);}
 
-// ===== READING MODULE (READ ALOUD v3 — FULL TEXT MODE) =====
+// ===== READING MODULE (READ ALOUD v4 — FULL TEXT INCREMENTAL) =====
 let readingState=null, readingRec=null;
 
 function showReading(){initDaily();stopAllReading();readingState=null;A.dailyState.phase='reading-list';save();renderReading();}
@@ -960,49 +960,73 @@ function addReadingText(){
 function startReading(textId){
   const text=A.readingTexts.find(t=>t.id===textId);
   if(!text)return;
-  // Parse full text into words (preserve punctuation as separate tokens)
+  // Parse full text into word tokens, preserving spaces as visual separators
   const allWords=[];
-  const parts=text.rawText.split(/([^\w'-]+)/).filter(x=>x.trim());
-  parts.forEach(p=>{
-    if(/^\s+$/.test(p))return;
-    if(/^[^\w'-]+$/.test(p)){allWords.push({token:p,isPunct:true,id:'rp_'+allWords.length});}
-    else{const ws=p.split(/\s+/).filter(x=>x);ws.forEach(w=>allWords.push({token:w,isPunct:false,id:'rp_'+allWords.length}));}
-  });
+  const re=/([a-zA-Z]+(?:'[a-z]+)?)|([^\w\s])|(\s+)/g;
+  let m;
+  while((m=re.exec(text.rawText))!==null){
+    if(m[1])allWords.push({token:m[1],isPunct:false,isSpace:false,id:'rv_'+allWords.length});
+    else if(m[2])allWords.push({token:m[2],isPunct:true,isSpace:false,id:'rv_'+allWords.length});
+    else if(m[3])allWords.push({token:m[3],isPunct:false,isSpace:true,id:'rv_'+allWords.length});
+  }
   readingState={
-    textId,allWords,totalWords:allWords.filter(w=>!w.isPunct).length,
-    currentPos:-1, // -1 = not started, increases as words are matched
-    isListening:false,currentTranscript:'',silenceStart:null,
-    errorWords:{} // {wordId: {target,spoken,count}}
+    textId,allWords,
+    contentWords:allWords.filter(w=>!w.isPunct&&!w.isSpace), // only real words
+    // Track accumulated transcript across recognition rounds
+    accumulatedTranscript:'',       // confirmed text so far
+    lastConfirmedPos:-1,           // last confirmed word position (never decreases)
+    currentPos:-1,                 // current highlighted word
+    isListening:false,
+    silenceStart:null,
+    errorWords:{},                 // {wordId: {target,spoken,count}}
+    mode:'manual'                  // 'manual' or 'auto'
   };
   A.dailyState.phase='reading-active';save();renderReadingActive();
 }
 
-function alignKnownWords(targetWords, spoken){
-  // targetWords is array of {token,isPunct,id}
-  // Returns: array of same length with {type: 'correct'|'wrong'|'skipped'|'pending'}
-  const cleanTarget=targetWords.filter(w=>!w.isPunct).map(w=>w.token.toLowerCase().replace(/[^a-z]/g,''));
-  const sw=spoken.split(/\s+/).filter(x=>x).map(x=>x.toLowerCase().replace(/[^a-z]/g,''));
+// Incremental word alignment — aligns spoken text against remaining target words
+// Returns: array of {type, targetIdx} for each spoken word, starting from startIdx
+function alignIncremental(targetWords, startIdx, spokenText){
+  const spoken=spokenText.split(/\s+/).filter(x=>x).map(x=>x.toLowerCase().replace(/[^a-z'-]/g,''));
+  if(spoken.length===0)return[];
+
+  // Build clean target list from startIdx
+  const cleanTargets=[];
+  const targetIndices=[];
+  for(let i=startIdx;i<targetWords.length;i++){
+    const w=targetWords[i];
+    if(w.isPunct||w.isSpace)continue;
+    cleanTargets.push(w.token.toLowerCase().replace(/[^a-z'-]/g,''));
+    targetIndices.push(i);
+  }
+  if(cleanTargets.length===0)return[];
+
   const result=[];
-  let si=0; // spoken index
-  for(let ti=0;ti<targetWords.length;ti++){
-    const w=targetWords[ti];
-    if(w.isPunct){result.push({type:'pending'});continue;}
-    const a=w.token.toLowerCase().replace(/[^a-z]/g,'');
-    if(si>=sw.length){result.push({type:'pending'});continue;}
-    const b=sw[si];
-    // Match: exact or fuzzy
+  let ti=0; // target index (within cleanTargets)
+  for(let si=0;si<spoken.length;si++){
+    if(ti>=cleanTargets.length)break;
+    const a=cleanTargets[ti];
+    const b=spoken[si];
+    // Match
     const exact=a===b;
     const fuzzy=!exact&&a.length>=2&&b.length>=2&&(
       a.includes(b)||b.includes(a)||a.slice(0,-1)===b||a===b.slice(0,-1)||
       a+'s'===b||a===b+'s'||a+'ing'===b||a===b+'ing'||a+'ed'===b||a===b+'ed'
     );
-    if(exact||fuzzy){result.push({type:exact?'correct':'fuzzy'});si++;}
-    else{
-      // Check if this spoken word matches the NEXT target (speaker skipped this word)
-      const nextClean=ti+1<targetWords.length&&!targetWords[ti+1].isPunct
-        ?targetWords[ti+1].token.toLowerCase().replace(/[^a-z]/g,'') :'';
-      if(nextClean&&nextClean===b){result.push({type:'skipped'});si++;ti++;}
-      else{result.push({type:'wrong'});si++;}
+    if(exact||fuzzy){
+      result.push({type:exact?'correct':'fuzzy',targetIdx:targetIndices[ti]});
+      ti++;
+    }else{
+      // Skip ahead check: maybe speaker skipped this target word
+      if(ti+1<cleanTargets.length&&cleanTargets[ti+1]===b){
+        result.push({type:'skipped',targetIdx:targetIndices[ti]});
+        ti++;
+        result.push({type:'correct',targetIdx:targetIndices[ti]});
+        ti++;
+      }else{
+        result.push({type:'wrong',targetIdx:targetIndices[ti]});
+        ti++;
+      }
     }
   }
   return result;
@@ -1028,11 +1052,11 @@ function renderReadingList(){
   const texts=A.readingTexts||[];
   app.innerHTML=`<div class="page-view">
     <div class="top-bar"><button class="btn-back" onclick="goDashboard()">←</button><h2 style="flex:1;">\U0001f4d6 朗读练习</h2><div style="width:40px;"></div></div>
-    <p style="color:#868E96;font-size:0.85rem;margin-bottom:12px;text-align:center;">粘贴课文全文，支持整篇朗读 + 实时追踪</p>
+    <p style="color:#868E96;font-size:0.85rem;margin-bottom:12px;text-align:center;">粘贴课文全文，支持整篇朗读 + 实时追踪 + 自动/手动模式</p>
     <input class="reading-textarea" id="newReadingTitle" placeholder="课文标题（如：PET Reading Part 1）" style="min-height:auto;padding:10px;margin-bottom:8px;">
     <textarea class="reading-textarea" id="newReadingText" placeholder="在此粘贴课文原文...&#10;&#10;例如：&#10;The weather was beautiful today. We decided to go for a walk in the park. There were many people enjoying the sunshine."></textarea>
-    <button class="btn-start" style="margin:8px 0 16px;font-size:0.95rem;" onclick="addReadingText()">\U0001f4e5 保存课文并开始</button>
-    ${texts.length===0?'<p style="text-align:center;color:#ADB5BD;padding:40px;">还没有课文</p>':texts.map(t=>`<div class="text-card" onclick="startReading('${t.id}')">
+    <button class="btn-start" style="margin:8px 0 16px;font-size:0.95rem;" onclick="addReadingText()">\U0001f4e5 保存课文</button>
+    ${texts.length===0?'<p style="text-align:center;color:#ADB5BD;padding:40px;">还没有课文，请在上方粘贴</p>':texts.map(t=>`<div class="text-card" onclick="startReading('${t.id}')">
       <div class="text-title">${t.title} ${t.bestScore!==null?'⭐'.repeat(t.bestScore>=90?3:t.bestScore>=70?2:1):''}</div>
       <div class="text-preview">${t.rawText.slice(0,80)}...</div>
       <div class="text-meta">${t.rawText.split(/\\s+/).length} 词 · ${t.created}${t.lastRead?' · 最佳 '+t.bestScore+'%':''}</div>
@@ -1041,11 +1065,12 @@ function renderReadingList(){
   </div>`;
 }
 
-// ----- FULL-TEXT READING (v3) -----
+// ----- FULL-TEXT READING (v4 — incremental tracking) -----
 function renderReadingActive(){
   if(!readingState){showReading();return;}
   const aw=readingState.allWords;
   const rl=readingState.isListening;
+  const mode=readingState.mode||'manual';
 
   // Build full text with colored word tokens
   let tokensHTML='';
@@ -1053,21 +1078,25 @@ function renderReadingActive(){
     const w=aw[i];let cls='';
     if(w._type){cls=w._type==='correct'||w._type==='fuzzy'?'correct':(w._type==='wrong'?'wrong':(w._type==='skipped'?'skipped':''));}
     if(i===readingState.currentPos)cls+=' current';
+    if(w.isSpace){tokensHTML+=' ';continue;}
+    if(w.isPunct){tokensHTML+=`<span class="word-token" id="${w.id}">${w.token}</span>`;continue;}
     tokensHTML+=`<span class="word-token ${cls}" id="${w.id}">${w.token}</span>`;
   }
 
   const statusHTML=rl
     ?'<div class="reading-status listening">\U0001f3a4 正在听... <span style="font-size:0.75rem;">读完停顿5秒自动结束</span></div>'
-    :'<div class="reading-status paused">⏸ 已暂停<br><span style="font-size:0.75rem;">手动点击开始或结束</span></div>';
+    :'<div class="reading-status paused">⏸ 已暂停</div>';
 
   const heardT=readingState.currentTranscript||'';
   const errCount=Object.keys(readingState.errorWords||{}).length;
+  const progressPct=readingState.contentWords.length>0
+    ?Math.round((readingState.lastConfirmedPos+1)/readingState.contentWords.length*100):0;
 
   app.innerHTML=`<div class="page-view">
     <div class="top-bar">
       <button class="btn-back" onclick="stopAllReading();showReading();">←</button>
-      <h2 style="flex:1;font-size:0.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">\U0001f4d6 朗读中</h2>
-      <div style="width:40px;"></div>
+      <div class="progress-bar"><div class="progress-fill" style="background:${mode==='auto'?'#4ECDC4':'#FF6B6B'};width:${progressPct}%"></div></div>
+      <div class="progress-label">${progressPct}%</div>
     </div>
     ${errCount>0?`<p style="text-align:center;color:#C92A2A;font-size:0.8rem;margin-bottom:4px;">⚠ 已发现 ${errCount} 处错误</p>`:''}
     <div class="reading-full-text-wrap" id="readingFullText">${tokensHTML}</div>
@@ -1076,14 +1105,19 @@ function renderReadingActive(){
     <div style="display:flex;gap:10px;margin-top:8px;">
       ${!rl
         ?`<button class="btn-start" style="background:linear-gradient(135deg,#FF6B6B,#FF8787);flex:1;" onclick="startReadingListen()">▶ 开始朗读</button>`
-        :`<button class="btn-start" style="background:linear-gradient(135deg,#51CF66,#40C057);flex:1;" onclick="stopReadingListen(true)">⏹ 结束朗读</button>`
+        :`<button class="btn-start" style="background:linear-gradient(135deg,#51CF66,#40C057);flex:1;" onclick="stopReadingListen()">⏹ 结束朗读</button>`
       }
     </div>
-    <button class="btn-secondary" style="margin-top:6px;" onclick="stopAllReading();finishReading();">\U0001f4ca 查看报告</button>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn-secondary" style="flex:1;" onclick="readingState.mode=readingState.mode==='auto'?'manual':'auto';renderReadingActive();">
+        ${mode==='auto'?'\U0001f504 切换为手动':'\U0001f504 切换为自动'}
+      </button>
+      <button class="btn-secondary" style="flex:1;" onclick="stopAllReading();finishReading();">\U0001f4ca 查看报告</button>
+    </div>
   </div>`;
 
   // Scroll to current word
-  if(readingState.currentPos>=0){
+  if(readingState.currentPos>=0&&readingState.currentPos<aw.length){
     setTimeout(()=>{
       const el=document.getElementById(aw[readingState.currentPos]?.id);
       if(el)el.scrollIntoView({behavior:'smooth',block:'center'});
@@ -1091,7 +1125,7 @@ function renderReadingActive(){
   }
 }
 
-// ----- LISTENING ENGINE (continuous, full-text) -----
+// ----- LISTENING ENGINE (incremental, non-backtracking) -----
 function startReadingListen(){
   if(!readingState)return;
   stopAllReading();
@@ -1101,63 +1135,106 @@ function startReadingListen(){
   readingRec=new R();
   readingRec.lang='en-US';
   readingRec.interimResults=true;
-  readingRec.continuous=true;  // KEY: continuous for full-text reading
+  readingRec.continuous=true;  // continuous for full-text
   readingRec.maxAlternatives=3;
 
   readingState.isListening=true;
-  readingState.currentTranscript='';
   readingState.silenceStart=null;
+  // Reset word states for fresh reading session
+  readingState.allWords.forEach(w=>{w._type=undefined;});
+  readingState.currentPos=0;
+  readingState.lastConfirmedPos=-1;
+  readingState.accumulatedTranscript='';
+  readingState.errorWords={};
   renderReadingActive();
 
-  let lastFinal='';
   let silenceCheckTimer=null;
 
   readingRec.onresult=function(e){
-    let best='',bestConf=0;
-    for(let i=e.resultIndex;i<e.results.length;i++){
+    // Collect all available text — both interim and final
+    let fullText='';
+    let hasNewFinal=false;
+    for(let i=0;i<e.results.length;i++){
       const r=e.results[i];
-      if(r.isFinal){
-        for(let j=0;j<r.length;j++){if(r[j].confidence>bestConf||(r[j].confidence===bestConf&&r[j].transcript.length>best.length)){best=r[j].transcript;bestConf=r[j].confidence;}}
+      // Pick best alternative
+      let best='',bestConf=0;
+      for(let j=0;j<r.length;j++){
+        if(r[j].confidence>bestConf){best=r[j].transcript;bestConf=r[j].confidence;}
+      }
+      if(best)fullText+=(fullText?' ':'')+best;
+      if(r.isFinal)hasNewFinal=true;
+    }
+    if(!fullText)return;
+    fullText=fullText.trim().toLowerCase();
+
+    // Determine what's new since last accumulated transcript
+    const acc=readingState.accumulatedTranscript;
+    let incrementalText='';
+    if(fullText.startsWith(acc))incrementalText=fullText.slice(acc.length).trim();
+    else{
+      // Accumulated transcript diverged — find overlap
+      // Use longest common prefix to find where we are
+      let overlapLen=0;
+      const maxCheck=Math.min(acc.length,fullText.length);
+      for(let i=0;i<maxCheck;i++){if(acc[i]===fullText[i])overlapLen=i+1;else break;}
+      if(overlapLen>=acc.length*0.7){
+        // Mostly matches, pick up from overlap
+        incrementalText=fullText.slice(overlapLen).trim();
+      }else{
+        // Major divergence — this shouldn't happen often, but reset incremental approach
+        // Only accept if the accumulated text is a subset
+        if(fullText.includes(acc)){
+          const idx=fullText.indexOf(acc);
+          incrementalText=fullText.slice(idx+acc.length).trim();
+        }else{incrementalText=fullText;}
       }
     }
-    if(best&&best!==lastFinal){
-      lastFinal=best;
-      readingState.currentTranscript=best;
-      readingState.silenceStart=null;
-      // Real-time alignment against full word list
-      const aligned=alignKnownWords(readingState.allWords,best);
-      // Apply results to word tokens
-      let lastCorrect=-1;
-      for(let i=0;i<aligned.length;i++){
-        const w=readingState.allWords[i];
-        if(w.isPunct)continue;
-        w._type=aligned[i]?aligned[i].type:'pending';
-        if(w._type==='correct'||w._type==='fuzzy')lastCorrect=i;
-      }
-      // Update current position
-      readingState.currentPos=lastCorrect>=0?lastCorrect+1:-1;
-      // Highlight the word at currentPos
-      readingState.allWords.forEach(w=>{if(w._type==='pending'||w._type===undefined)w._type='pending';});
-      if(readingState.currentPos>=0&&readingState.currentPos<readingState.allWords.length){
-        readingState.allWords[readingState.currentPos]._type=(readingState.allWords[readingState.currentPos]._type||'pending');
-      }
-      // Update DOM (lightweight)
-      updateReadingFullDOM(readingState.allWords,aligned,best);
-      // Track errors
-      aligned.forEach((a,i)=>{
-        const w=readingState.allWords[i];
-        if(!w||w.isPunct)return;
-        if(a.type==='wrong'||a.type==='skipped'){
-          if(!readingState.errorWords[w.id])readingState.errorWords[w.id]={target:w.token,spoken:'',count:0};
-          readingState.errorWords[w.id].count++;
-          readingState.errorWords[w.id].spoken=best.split(/\s+/).slice(0,i+1).pop()||'??';
-        }
-      });
-      save();
-    }
-    // Reset silence timer: 5 seconds of silence = auto-stop
+
+    readingState.currentTranscript=fullText;
     readingState.silenceStart=null;
     clearTimeout(silenceCheckTimer);
+
+    if(incrementalText){
+      // Align only the new words
+      const startFrom=readingState.lastConfirmedPos+1;
+      const aligned=alignIncremental(readingState.allWords,startFrom,incrementalText);
+
+      if(hasNewFinal){
+        // Confirm these results permanently
+        for(const a of aligned){
+          const w=readingState.allWords[a.targetIdx];
+          if(!w||w.isPunct||w.isSpace)continue;
+          w._type=a.type;
+          if(a.type==='correct'||a.type==='fuzzy'){
+            readingState.lastConfirmedPos=Math.max(readingState.lastConfirmedPos,a.targetIdx);
+          }else if(a.type==='wrong'||a.type==='skipped'){
+            if(!readingState.errorWords[w.id])readingState.errorWords[w.id]={target:w.token,spoken:'',count:0};
+            readingState.errorWords[w.id].count++;
+            const sp=incrementalText.split(/\s+/);
+            readingState.errorWords[w.id].spoken=sp[0]||'??';
+          }
+        }
+        // Update accumulated transcript
+        readingState.accumulatedTranscript=fullText;
+      }else{
+        // Interim only — apply visually but don't confirm
+        for(const a of aligned){
+          const w=readingState.allWords[a.targetIdx];
+          if(!w||w.isPunct||w.isSpace)continue;
+          w._type=a.type;
+        }
+      }
+
+      // Update current position (visual only, never goes backward)
+      const confirmed=readingState.lastConfirmedPos;
+      readingState.currentPos=Math.max(confirmed+1,readingState.currentPos);
+    }
+
+    // Update DOM
+    updateReadingFullDOM(readingState.allWords,fullText);
+    save();
+
+    // Reset auto-stop timer
     silenceCheckTimer=setTimeout(checkSilenceAutoStop,5000);
   };
 
@@ -1165,12 +1242,13 @@ function startReadingListen(){
     readingRec=null;
     if(!readingState)return;
     readingState.isListening=false;
-    renderReadingActive();
+    // Auto mode: auto-stop triggers finish
+    if(readingState.mode==='auto'){finishReading();}
+    else{renderReadingActive();}
   };
 
   readingRec.onerror=function(e){
     if(e.error==='no-speech'){
-      // Just restart
       try{if(readingState&&readingState.isListening){readingRec.start();return;}}catch(x){}
     }
     readingRec=null;
@@ -1184,52 +1262,50 @@ function startReadingListen(){
 function checkSilenceAutoStop(){
   if(!readingState||!readingState.isListening)return;
   if(readingState.silenceStart===null){readingState.silenceStart=Date.now();}
-  const elapsed=Date.now()-readingState.silenceStart;
-  if(elapsed>=5000){
-    // Auto-stop after 5s silence
-    stopReadingListen(false);
+  if(Date.now()-readingState.silenceStart>=5000){
+    readingState.isListening=false;
+    stopAllReading();
+    finishReading();
   }
 }
 
-function updateReadingFullDOM(allWords,aligned,transcript){
+function updateReadingFullDOM(allWords,transcript){
   const heardEl=document.getElementById('readingHeard');
   if(heardEl)heardEl.innerHTML='听到: <strong>'+transcript+'</strong>';
 
   for(let i=0;i<allWords.length;i++){
     const w=allWords[i];
+    if(w.isPunct||w.isSpace)continue;
     const el=document.getElementById(w.id);
     if(!el)continue;
     el.classList.remove('correct','wrong','skipped','current');
     if(w._type==='correct'||w._type==='fuzzy')el.classList.add('correct');
-    else if(w._type==='wrong'){el.classList.add('wrong');beep(350,50,0.15);}
+    else if(w._type==='wrong')el.classList.add('wrong');
     else if(w._type==='skipped')el.classList.add('skipped');
     if(i===readingState.currentPos)el.classList.add('current');
   }
-  // Auto-scroll
-  if(readingState.currentPos>=0){
+  // Auto-scroll to current word
+  if(readingState.currentPos>=0&&readingState.currentPos<allWords.length){
     const curEl=document.getElementById(allWords[readingState.currentPos]?.id);
     if(curEl)curEl.scrollIntoView({behavior:'smooth',block:'center'});
   }
 }
 
-function stopReadingListen(saveResults=true){
+function stopReadingListen(){
   stopAllReading();
   if(!readingState)return;
   readingState.isListening=false;
-  if(saveResults)readingState.sentenceDone=true;
-  renderReadingActive();
+  finishReading();
 }
 
 // ----- FINISH & REPORT -----
 function finishReading(){
   stopAllReading();
   if(!readingState)return;
-  const aw=readingState.allWords;
-  const contentWords=aw.filter(w=>!w.isPunct);
+  const contentWords=readingState.contentWords;
   const totalWords=contentWords.length;
   let correctCount=0;
   contentWords.forEach(w=>{if(w._type==='correct'||w._type==='fuzzy')correctCount++;});
-
   const errMap=readingState.errorWords||{};
   const errorList=Object.values(errMap).sort((a,b)=>b.count-a.count);
   const totalErrors=errorList.reduce((s,e)=>s+e.count,0);
@@ -1237,17 +1313,10 @@ function finishReading(){
 
   const rec={textId:readingState.textId,date:today(),totalWords,totalErrors,score:pct,errorList};
   A.readingHistory.push(rec);
-
   const text=A.readingTexts.find(t=>t.id===readingState.textId);
   if(text){text.lastRead=today();if(text.bestScore===null||pct>text.bestScore)text.bestScore=pct;}
-
-  errorList.forEach(e=>{
-    const w=A.wordBank.find(x=>x.word.toLowerCase()===e.target.toLowerCase());
-    if(w)addWrong(w.id,'朗读:'+(e.spoken||'未读'));
-  });
-
+  errorList.forEach(e=>{const w=A.wordBank.find(x=>x.word.toLowerCase()===e.target.toLowerCase());if(w)addWrong(w.id,'朗读:'+(e.spoken||'未读'));});
   if(pct>=90)addPoints(10);else if(pct>=70)addPoints(5);
-
   readingState.finalResults={score:pct,totalWords,totalErrors,errorList};
   save();A.dailyState.phase='reading-report';renderReadingReport();
 }
@@ -1267,20 +1336,11 @@ function renderReadingReport(){
       <div class="emoji">${em}</div><h2>${text?text.title:'朗读完成'}</h2><p class="message">${msg}</p>
       <div class="complete-stats"><div class="complete-stat"><div class="val green">${fr.totalWords-fr.totalErrors}</div><div class="lbl">正确词数</div></div><div class="complete-stat"><div class="val" style="color:#C92A2A;">${fr.totalErrors}</div><div class="lbl">错误词数</div></div><div class="complete-stat"><div class="val yellow">${fr.score}%</div><div class="lbl">正确率</div></div></div>
       <p style="color:#636E72;font-size:0.85rem;margin-bottom:12px;">全文共 ${fr.totalWords} 个单词</p>
-      ${fr.errorList.length>0?`<div style="background:white;border-radius:12px;padding:12px;margin-bottom:12px;"><h4 style="margin-bottom:8px;font-size:0.9rem;">⚠ 易错单词 (${fr.errorList.length}个) — 点击听发音</h4><div style="line-height:2;">${fr.errorList.map(e=>`<span class="reading-report-word" onclick="speak('${e.target.replace(/'/g,"\\'")}',0.65)">${e.target} ×${e.count}</span>`).join(' ')}</div></div>`:''}
-      ${fr.errorList.length>0?`<button class="btn-extra" onclick="retryErrors()">\U0001f501 重新朗读本文</button>`:''}
+      ${fr.errorList.length>0?`<div style="background:white;border-radius:12px;padding:12px;margin-bottom:12px;"><h4 style="margin-bottom:8px;font-size:0.9rem;">⚠ 易错单词 — 点击听发音</h4><div style="line-height:2;">${fr.errorList.map(e=>`<span class="reading-report-word" onclick="speak('${e.target.replace(/'/g,"\\'")}',0.65)">${e.target} ×${e.count}</span>`).join(' ')}</div></div>`:''}
+      <button class="btn-extra" onclick="startReading(readingState.textId);setTimeout(()=>startReadingListen(),400);">\U0001f501 重新朗读</button>
       <button class="btn-done" onclick="stopAllReading();showReading();">\U0001f3e0 返回列表</button>
     </div>
   </div>`;
-}
-
-function retryErrors(){
-  // Simple: restart the same text
-  const tid=readingState?.textId;
-  if(!tid){showReading();return;}
-  stopAllReading();
-  startReading(tid);
-  setTimeout(()=>startReadingListen(),500);
 }
 
 
