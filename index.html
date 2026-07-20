@@ -943,9 +943,9 @@ function exportData(){const d={wordBank:A.wordBank,history:A.history,wrongBook:A
 function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(d.wordBank){A.wordBank=A.wordBank.map((w,i)=>{const nw=d.wordBank.find(x=>x.id===w.id);return nw?{...w,...nw,word:w.word,meaning:w.meaning,example_en:w.example_en,example_zh:w.example_zh,pos:w.pos,topic:w.topic,level:w.level,phonetic_uk:w.phonetic_uk,phonetic_us:w.phonetic_us}:w;});}if(d.history)A.history=d.history;if(d.wrongBook)A.wrongBook=d.wrongBook;if(d.points!==undefined)A.points=d.points;if(d.readingTexts)A.readingTexts=d.readingTexts;if(d.readingHistory)A.readingHistory=d.readingHistory;if(d.settings)A.settings={...A.settings,...d.settings};save();render();alert('数据导入成功！');}catch(x){alert('文件格式错误');}};r.readAsText(f);}
 
 // ===== READING MODULE (READ ALOUD) =====
-let readingState=null, readingRec=null;
+let readingState=null, readingRec=null, readingPause=false;
 
-function showReading(){initDaily();stopReadRec();readingState=null;A.dailyState.phase='reading-list';save();renderReading();}
+function showReading(){initDaily();stopAllReading();readingState=null;A.dailyState.phase='reading-list';save();renderReading();}
 
 function addReadingText(){
   const area=document.getElementById('newReadingText');
@@ -962,11 +962,11 @@ function addReadingText(){
 function startReading(textId){
   const text=A.readingTexts.find(t=>t.id===textId);
   if(!text)return;
-  readingState={textId,sentences:[...text.sentences],currentIdx:0,totalSentences:text.sentences.length,sentenceResults:[],isCorrection:false,isListening:false,currentTranscript:'',currentTokens:[],sentenceDone:false,currentAligned:null};
-  A.dailyState.phase='reading-active';save();renderReading();
+  readingState={textId,sentences:[...text.sentences],currentIdx:0,totalSentences:text.sentences.length,sentenceResults:[],isCorrection:false,isListening:false,currentTranscript:'',currentTokens:[],sentenceDone:false,currentAligned:null,autoMode:false};
+  readingPause=false;
+  A.dailyState.phase='reading-active';save();renderReadingActive();
 }
 
-// Word alignment via Levenshtein + fuzzy matching
 function alignWords(target, spoken){
   const tw=target.split(/\s+/).filter(x=>x.length);const sw=spoken.split(/\s+/).filter(x=>x.length);
   if(tw.length===0)return[];
@@ -1002,8 +1002,9 @@ function beep(freq=800,dur=100,vol=0.3){
   try{const c=new (window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=freq;o.type='sine';g.gain.value=vol;o.start();setTimeout(()=>{o.stop();c.close();},dur);}catch(e){}
 }
 
-function stopReadRec(){
+function stopAllReading(){
   if(readingRec){try{readingRec.stop();}catch(e){}readingRec=null;}
+  readingPause=false;
 }
 
 function renderReading(){
@@ -1013,12 +1014,11 @@ function renderReading(){
   else if(phase==='reading-report')renderReadingReport();
 }
 
-// ----- LIST -----
 function renderReadingList(){
   const texts=A.readingTexts||[];
   app.innerHTML=`<div class="page-view">
     <div class="top-bar"><button class="btn-back" onclick="goDashboard()">←</button><h2 style="flex:1;">📖 朗读练习</h2><div style="width:40px;"></div></div>
-    <p style="color:#868E96;font-size:0.85rem;margin-bottom:12px;text-align:center;">粘贴课文原文，逐句朗读并实时纠错</p>
+    <p style="color:#868E96;font-size:0.85rem;margin-bottom:12px;text-align:center;">粘贴课文，点击开始后全程自动逐句朗读并纠错</p>
     <input class="reading-textarea" id="newReadingTitle" placeholder="课文标题（如：PET Reading Part 1）" style="min-height:auto;padding:10px;margin-bottom:8px;">
     <textarea class="reading-textarea" id="newReadingText" placeholder="在此粘贴课文原文...&#10;&#10;例如：&#10;The weather was beautiful today. We decided to go for a walk in the park. There were many people enjoying the sunshine."></textarea>
     <button class="btn-start" style="margin:8px 0 16px;font-size:0.95rem;" onclick="addReadingText()">📥 保存课文并开始</button>
@@ -1027,11 +1027,10 @@ function renderReadingList(){
       <div class="text-preview">${t.rawText.slice(0,80)}...</div>
       <div class="text-meta">${t.sentences.length} 句 · ${t.created}${t.lastRead?' · 最佳 '+t.bestScore+'%':''}</div>
     </div>`).join('')}
-    ${texts.length>0?`<button class="btn-text" style="color:#FF6B6B;margin-top:8px;" onclick="if(confirm('确定清除所有课文和朗读记录？')){A.readingTexts=[];A.readingHistory=[];save();renderReading();}">🗑 清除全部课文</button>`:''}
+    ${texts.length>0?`<button class="btn-text" style="color:#FF6B6B;margin-top:8px;" onclick="if(confirm('确定清除所有课文？')){A.readingTexts=[];A.readingHistory=[];save();renderReading();}">🗑 清除全部课文</button>`:''}
   </div>`;
 }
 
-// ----- ACTIVE READING (single sentence) -----
 function renderReadingActive(){
   if(!readingState){showReading();return;}
   const idx=readingState.currentIdx;
@@ -1039,289 +1038,222 @@ function renderReadingActive(){
   const sentence=readingState.sentences[idx];
   const words=sentence.split(/\s+/);
   const isCorr=readingState.isCorrection;
-
-  // Build word tokens with color highlighting from latest alignment
   const aligned=readingState.currentAligned||[];
+
   let tokensHTML='';
   for(let i=0;i<words.length;i++){
     let cls='';
-    if(aligned.length>0){
-      // Find matching aligned entry for this target word
-      const ae=aligned.find(a=>a.target===words[i]&&a.type!=='extra');
-      if(ae){cls=ae.type==='correct'?'correct':(ae.type==='fuzzy'?'correct':'wrong');}
-      // Mark current word (the one being spoken now)
-      const spokenIdx=aligned.findIndex(a=>a.target===words[i]);
-      const heardCount=aligned.slice(0,spokenIdx).filter(a=>a.type==='correct'||a.type==='fuzzy').length;
-      // Highlight the word after the last correctly aligned one as "current"
-    }
+    const ae=aligned.find(a=>a.target===words[i]);
+    if(ae)cls=ae.type==='correct'||ae.type==='fuzzy'?'correct':(ae.type==='wrong'?'wrong':(ae.type==='missed'?'missed':''));
     tokensHTML+=`<span class="word-token ${cls}" id="rt_${i}">${words[i]}</span>`;
   }
 
-  // Calculate which word to highlight as "currently reading"
-  // Based on how many words have been correctly matched so far
-  if(readingState.currentTranscript){
-    const correctCount=aligned.filter(a=>a.type==='correct'||a.type==='fuzzy').length;
-    if(correctCount<words.length&&readingState.isListening){
-      // Highlight next expected word
-      setTimeout(()=>{
-        const els=document.querySelectorAll('.word-token.current');
-        els.forEach(e=>e.classList.remove('current'));
-        const next=document.getElementById('rt_'+correctCount);
-        if(next)next.classList.add('current');
-      },100);
-    }
-  }
-
-  const statusHTML=readingState.isListening
-    ?'<div class="reading-status listening">🔴 正在听...</div>'
-    :(readingState.sentenceDone?'<div class="reading-status done">✅ 本句完成</div>':'<div class="reading-status paused">⏸ 点击开始朗读</div>');
+  const rl=readingState.isListening;
+  const statusHTML=rl
+    ?'<div class="reading-status listening">🎤 正在听... <span style="font-size:0.75rem;">读完自动进入下一句</span></div>'
+    :(readingState.sentenceDone?'<div class="reading-status done">✅ 本句完成</div>':'<div class="reading-status paused">⏸ 已暂停</div>');
 
   const heardT=readingState.currentTranscript||'';
   const errCount=aligned.filter(a=>a.type==='wrong'||a.type==='missed').length;
 
   app.innerHTML=`<div class="page-view">
     <div class="top-bar">
-      <button class="btn-back" onclick="stopReadRec();readingState=null;showReading();">←</button>
-      <div class="progress-bar"><div class="progress-fill" style="background:#4ECDC4;width:${(idx/readingState.totalSentences)*100}%"></div></div>
+      <button class="btn-back" onclick="stopAllReading();readingState=null;showReading();">←</button>
+      <div class="progress-bar"><div class="progress-fill" style="background:${isCorr?'#A855F7':'#4ECDC4'};width:${(idx/readingState.totalSentences)*100}%"></div></div>
       <div class="progress-label">${idx+1}/${readingState.totalSentences}</div>
     </div>
     ${isCorr?'<div style="text-align:center;margin-bottom:4px;"><span class="correction-round-badge">🔁 纠错轮</span></div>':''}
     <div class="reading-sentence-num">第 ${idx+1} 句</div>
     <div class="reading-sentence" id="readingSentence">${tokensHTML}</div>
-    <div class="reading-heard" id="readingHeard">${heardT?'当前听到：<strong>'+heardT+'</strong>':'等待开始朗读...'}</div>
+    <div class="reading-heard" id="readingHeard">${rl?(heardT?'听到: <strong>'+heardT+'</strong>':'🎤 正在听...'):(heardT?'听到: <strong>'+heardT+'</strong>':'')}</div>
     ${statusHTML}
-    ${errCount>0?`<p style="text-align:center;color:#C92A2A;font-size:0.85rem;">⚠ ${errCount} 处与原文不一致</p>`:''}
+    ${errCount>0&&!rl?`<p style="text-align:center;color:#C92A2A;font-size:0.85rem;">⚠ ${errCount} 处错误</p>`:''}
     <div style="display:flex;gap:10px;margin-top:8px;">
-      ${!readingState.isListening
-        ?`<button class="btn-start" style="background:linear-gradient(135deg,#FF6B6B,#FF8787);flex:1;" onclick="startReadingListen()">🎤 开始朗读</button>`
-        :`<button class="btn-start" style="background:#E9ECEF;color:#495057;flex:1;" onclick="finishReadingSentence()">⏹ 完成本句</button>`
+      ${!rl
+        ?`<button class="btn-start" style="background:linear-gradient(135deg,#FF6B6B,#FF8787);flex:1;" onclick="startAutoReading()">▶ 开始自动朗读</button>`
+        :`<button class="btn-start" style="background:#E9ECEF;color:#495057;flex:1;" onclick="pauseReading()">⏸ 暂停</button>`
       }
     </div>
-    ${readingState.sentenceDone
-      ?`<div style="display:flex;gap:10px;margin-top:8px;">
-          <button class="btn-start" style="background:linear-gradient(135deg,#51CF66,#40C057);flex:1;" onclick="nextReadingSentence()">→ ${idx<readingState.totalSentences-1?'下一句':'完成朗读'}</button>
-          <button class="btn-secondary" style="flex:1;color:#FF6B6B;border-color:#FFE3E3;" onclick="retryCurrentSentence()">🔄 重读本句</button>
-        </div>`
-      :''
-    }
   </div>`;
-
-  // Auto-scroll sentence area if needed
-  setTimeout(()=>{
-    const sentEl=document.getElementById('readingSentence');
-    if(sentEl){sentEl.scrollIntoView({behavior:'smooth',block:'center'});}
-  },100);
 }
 
-// ----- LISTENING ENGINE -----
-function startReadingListen(){
-  if(!readingState)return;
-  stopReadRec();
+function startAutoReading(){
+  stopAllReading();
+  readingPause=false;
+  readingState.autoMode=true;
+  readingState.isListening=false;
+  beginListenCurrentSentence();
+}
+
+function pauseReading(){
+  readingPause=true;
+  stopAllReading();
+  if(readingState){readingState.isListening=false;readingState.autoMode=false;}
+  renderReadingActive();
+}
+
+function beginListenCurrentSentence(){
+  if(!readingState||readingPause)return;
+  if(readingState.currentIdx>=readingState.totalSentences){finishReading();return;}
+  stopAllReading();
   const R=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!R){alert('浏览器不支持语音识别，请使用 Chrome');return;}
 
   readingRec=new R();
   readingRec.lang='en-US';
-  readingRec.interimResults=true;   // get partial results for real-time tracking
-  readingRec.continuous=false;       // single utterance per sentence - avoid endless loop
+  readingRec.interimResults=true;
+  readingRec.continuous=false;
   readingRec.maxAlternatives=5;
 
   readingState.isListening=true;
   readingState.currentTranscript='';
   readingState.currentAligned=null;
   readingState.sentenceDone=false;
-  renderReadingActive();  // show listening UI once
+  renderReadingActive();
 
   let lastInterim='';
-  let finalResult=null;
+  let finalTranscript=null;
+  let silenceTimer=null;
 
   readingRec.onresult=function(e){
-    // Process interim results for real-time display
+    clearTimeout(silenceTimer);
     for(let i=e.resultIndex;i<e.results.length;i++){
       const r=e.results[i];
       if(r.isFinal){
-        // Pick best final result
         let best='',bestConf=0;
-        for(let j=0;j<r.length;j++){
-          if(r[j].confidence>bestConf){best=r[j].transcript;bestConf=r[j].confidence;}
-        }
-        if(best)finalResult=best;
+        for(let j=0;j<r.length;j++){if(r[j].confidence>bestConf){best=r[j].transcript;bestConf=r[j].confidence;}}
+        if(best)finalTranscript=best;
       }else{
-        // Show interim (partial) result for real-time tracking
-        let interim='';
-        for(let j=0;j<r.length;j++){if(r[j].confidence>0.2)interim=r[j].transcript;}
-        if(interim&&interim!==lastInterim){
-          lastInterim=interim;
-          readingState.currentTranscript=interim;
-          updateReadingLive(interim);
-        }
+        for(let j=0;j<r.length;j++){if(r[j].confidence>0.15){lastInterim=r[j].transcript;break;}}
+        if(lastInterim){readingState.currentTranscript=lastInterim;updateReadingDOM(lastInterim);}
       }
     }
+    if(finalTranscript){silenceTimer=setTimeout(()=>{if(readingRec)readingRec.stop();},800);}
+    silenceTimer=setTimeout(()=>{if(readingRec)readingRec.stop();},5000);
   };
 
   readingRec.onend=function(){
+    readingRec=null;
+    if(!readingState||readingPause)return;
     readingState.isListening=false;
-    // Use final result if available, otherwise last interim
-    const transcript=finalResult||lastInterim||'';
-    if(transcript&&readingState){
+    const transcript=finalTranscript||lastInterim||'';
+    if(transcript){
       readingState.currentTranscript=transcript;
       const sentence=readingState.sentences[readingState.currentIdx];
       const aligned=alignWords(sentence,transcript);
       readingState.currentAligned=aligned;
-      readingState.sentenceDone=true;
-      const errs=aligned.filter(a=>a.type!=='correct'&&a.type!=='fuzzy');
-      if(errs.length>0)beep(500,60,0.2);
+      const errs=aligned.filter(a=>a.type==='wrong'||a.type==='missed');
+      if(errs.length>0)beep(400,80,0.2);
       else beep(1200,80,0.15);
     }
-    readingRec=null;
+    readingState.sentenceDone=true;
     renderReadingActive();
+    if(!readingPause&&readingState.autoMode){setTimeout(()=>autoAdvanceSentence(),1800);}
   };
 
   readingRec.onerror=function(e){
-    if(e.error==='no-speech'){
-      // No speech detected — stop gracefully, let user try again
-      readingState.isListening=false;readingRec=null;renderReadingActive();return;
-    }
-    readingState.isListening=false;readingRec=null;
-    renderReadingActive();
+    readingRec=null;
+    if(!readingState||readingPause)return;
+    readingState.isListening=false;
+    if(e.error==='no-speech'&&!readingPause&&readingState.autoMode){setTimeout(()=>beginListenCurrentSentence(),800);return;}
+    if(e.error==='network'||e.error==='aborted'){setTimeout(()=>beginListenCurrentSentence(),1000);return;}
+    readingState.sentenceDone=true;renderReadingActive();
+    if(!readingPause&&readingState.autoMode){setTimeout(()=>autoAdvanceSentence(),2000);}
   };
 
   try{
     readingRec.start();
-    // Safety timeout: auto-stop after 20 seconds of silence
-    setTimeout(()=>{
-      if(readingState&&readingState.isListening&&!readingState.currentTranscript){
-        try{readingRec.stop();}catch(e){}
-        readingState.isListening=false;readingRec=null;renderReadingActive();
-      }
-    },20000);
+    setTimeout(()=>{if(readingRec){try{readingRec.stop();}catch(e){}}},30000);
   }catch(x){
-    readingState.isListening=false;readingRec=null;renderReadingActive();
+    readingState.isListening=false;readingRec=null;
+    readingState.sentenceDone=true;renderReadingActive();
+    if(!readingPause&&readingState.autoMode){setTimeout(()=>autoAdvanceSentence(),1500);}
   }
 }
 
-// Lightweight DOM update during listening (don't rebuild whole page)
-function updateReadingLive(transcript){
+function updateReadingDOM(transcript){
   if(!readingState)return;
   const sentence=readingState.sentences[readingState.currentIdx];
   const aligned=alignWords(sentence,transcript);
-
-  // Update "heard" display
   const heardEl=document.getElementById('readingHeard');
-  if(heardEl)heardEl.innerHTML='当前听到：<strong>'+transcript+'</strong>';
-
-  // Update word tokens: highlight correct/incorrect, mark current position
+  if(heardEl)heardEl.innerHTML='听到: <strong>'+transcript+'</strong>';
   const words=sentence.split(/\s+/);
   const correctCount=aligned.filter(a=>a.type==='correct'||a.type==='fuzzy').length;
-
   for(let i=0;i<words.length;i++){
     const token=document.getElementById('rt_'+i);
     if(!token)continue;
-    // Reset classes
     token.classList.remove('correct','wrong','missed','current');
-    // Find this word in aligned results
     const ae=aligned.find(a=>a.target===words[i]);
     if(ae){
       if(ae.type==='correct'||ae.type==='fuzzy')token.classList.add('correct');
-      else if(ae.type==='wrong'){token.classList.add('wrong');beep(400,40,0.15);}
+      else if(ae.type==='wrong')token.classList.add('wrong');
       else if(ae.type==='missed')token.classList.add('missed');
     }
-    // Mark current (next expected word)
     if(i===correctCount)token.classList.add('current');
   }
-
-  // Save interim alignment for render if needed
-  readingState.currentAligned=aligned;
+  const currentToken=document.getElementById('rt_'+correctCount);
+  if(currentToken)currentToken.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
-// ----- ACTIONS -----
-function finishReadingSentence(){
-  stopReadRec();
-  if(!readingState)return;
-  readingState.isListening=false;
-  const transcript=readingState.currentTranscript||'';
-  if(transcript){
-    const sentence=readingState.sentences[readingState.currentIdx];
-    const aligned=alignWords(sentence,transcript);
-    readingState.currentAligned=aligned;
-    const errs=aligned.filter(a=>a.type!=='correct'&&a.type!=='fuzzy');
-    if(errs.length>0)beep(500,60,0.2);
-  }
-  readingState.sentenceDone=true;
-  renderReadingActive();
-}
-
-function nextReadingSentence(){
-  if(!readingState)return;
-  const sentence=readingState.sentences[readingState.currentIdx];
+function autoAdvanceSentence(){
+  if(!readingState||readingPause)return;
+  const idx=readingState.currentIdx;
+  const sentence=readingState.sentences[idx];
   const aligned=readingState.currentAligned||[];
   const errors=aligned.filter(a=>a.type==='wrong'||a.type==='missed');
   const errorWords=errors.filter(a=>a.target).map(a=>({target:a.target,spoken:a.spoken||'未读'}));
-  readingState.sentenceResults.push({index:readingState.currentIdx,sentence,transcript:readingState.currentTranscript||'',aligned,errors:errorWords,errorCount:errors.length});
+  readingState.sentenceResults.push({index:idx,sentence,transcript:readingState.currentTranscript||'',aligned,errors:errorWords,errorCount:errors.length});
   readingState.currentIdx++;readingState.currentTranscript='';readingState.currentAligned=null;readingState.sentenceDone=false;readingState.isListening=false;
-  if(readingState.currentIdx>=readingState.totalSentences){finishReading();}else{renderReadingActive();}
-}
-
-function retryCurrentSentence(){
-  readingState.currentTranscript='';readingState.currentAligned=null;readingState.sentenceDone=false;readingState.isListening=false;
-  renderReadingActive();
+  if(readingState.currentIdx>=readingState.totalSentences){finishReading();}
+  else{renderReadingActive();setTimeout(()=>{if(!readingPause&&readingState.autoMode)beginListenCurrentSentence();},800);}
 }
 
 function finishReading(){
-  stopReadRec();
+  stopAllReading();
   const results=readingState?.sentenceResults||[];
   let totalWords=0,totalErrors=0;const allErrorWords=[];
   results.forEach(r=>{const w=r.sentence.split(/\s+/).length;totalWords+=w;totalErrors+=r.errorCount;r.errors.forEach(e=>allErrorWords.push(e));});
   const pct=totalWords>0?Math.round((totalWords-totalErrors)/totalWords*100):100;
-
   const rec={textId:readingState.textId,date:today(),totalSentences:readingState.totalSentences,totalWords,totalErrors,score:pct,errorWords:allErrorWords,results:results.map(r=>({sentence:r.sentence,errorCount:r.errorCount,errors:r.errors}))};
   A.readingHistory.push(rec);
-
   const text=A.readingTexts.find(t=>t.id===readingState.textId);
   if(text){text.lastRead=today();if(text.bestScore===null||pct>text.bestScore)text.bestScore=pct;}
-
   allErrorWords.forEach(e=>{const w=A.wordBank.find(x=>x.word.toLowerCase()===e.target.toLowerCase());if(w)addWrong(w.id,'朗读:'+(e.spoken||'未读'));});
-
   if(pct>=90)addPoints(10);else if(pct>=70)addPoints(5);
-
   const errorSentences=results.filter(r=>r.errorCount>0);
-  readingState.correctionQueue=errorSentences.map(r=>r.index);
-  readingState.correctionIdx=0;
+  readingState.correctionQueue=errorSentences.map(r=>r.index);readingState.correctionIdx=0;
   readingState.finalResults={score:pct,totalWords,totalErrors,errorSentences};
   save();A.dailyState.phase='reading-report';renderReadingReport();
 }
 
-// ----- REPORT -----
 function renderReadingReport(){
   const fr=readingState?.finalResults;if(!fr){showReading();return;}
   const text=A.readingTexts.find(t=>t.id===readingState.textId);
   let em,msg;
-  if(fr.score>=90){em='🏆';msg='朗读非常棒！发音很标准！';}
-  else if(fr.score>=70){em='👍';msg='整体不错，注意几个易错单词的发音。';}
-  else if(fr.score>=50){em='📚';msg='还有进步空间，多跟读几遍会更好！';}
-  else{em='💪';msg='别灰心，朗读需要多练习。一起进入纠错轮吧！';}
-
+  if(fr.score>=90){em='\\ud83c\\udfc6';msg='朗读非常棒！发音很标准！';}
+  else if(fr.score>=70){em='\\ud83d\\udc4d';msg='整体不错，注意几个易错单词的发音。';}
+  else if(fr.score>=50){em='\\ud83d\\udcda';msg='还有进步空间，多跟读几遍会更好！';}
+  else{em='\\ud83d\\udcaa';msg='别灰心，朗读需要多练习。一起进入纠错轮吧！';}
   const errMap={};fr.errorSentences.forEach(s=>{const r=readingState.sentenceResults.find(x=>x.index===s.index);if(r)r.errors.forEach(e=>{errMap[e.target]=errMap[e.target]||{word:e.target,count:0,spoken:e.spoken};errMap[e.target].count++;});});
   const errorList=Object.values(errMap).sort((a,b)=>b.count-a.count);
-
   app.innerHTML=`<div class="page-view">
-    <div class="top-bar"><button class="btn-back" onclick="stopReadRec();readingState=null;showReading();">←</button><h2 style="flex:1;">📊 朗读报告</h2><div style="width:40px;"></div></div>
+    <div class="top-bar"><button class="btn-back" onclick="stopAllReading();readingState=null;showReading();">\\u2190</button><h2 style="flex:1;">\\ud83d\\udcca 朗读报告</h2><div style="width:40px;"></div></div>
     <div class="complete-view pop" style="padding:0;">
       <div class="emoji">${em}</div><h2>${text?text.title:'朗读完成'}</h2><p class="message">${msg}</p>
       <div class="complete-stats"><div class="complete-stat"><div class="val green">${fr.totalWords-fr.totalErrors}</div><div class="lbl">正确词数</div></div><div class="complete-stat"><div class="val" style="color:#C92A2A;">${fr.totalErrors}</div><div class="lbl">错误词数</div></div><div class="complete-stat"><div class="val yellow">${fr.score}%</div><div class="lbl">正确率</div></div></div>
-      <p style="color:#636E72;font-size:0.85rem;margin-bottom:12px;">全文共 ${fr.totalWords} 个单词</p>
-      ${errorList.length>0?`<div style="background:white;border-radius:12px;padding:12px;margin-bottom:12px;"><h4 style="margin-bottom:8px;font-size:0.9rem;">⚠ 易错单词 (${errorList.length}个)</h4><div style="line-height:2;">${errorList.map(e=>`<span class="reading-report-word" onclick="speak('${e.word.replace(/'/g,"\\'")}',0.65)">${e.word} ×${e.count}</span>`).join(' ')}</div></div>`:''}
-      ${fr.errorSentences.length>0?`<button class="btn-extra" onclick="startCorrectionRound()">🔁 纠错轮 (${fr.errorSentences.length} 句需要重读)</button>`:''}
-      <button class="btn-done" onclick="stopReadRec();readingState=null;showReading();">🏠 返回课文列表</button>
+      <p style="color:#636E72;font-size:0.85rem;margin-bottom:12px;">全文共 ${fr.totalWords} 个单词，${fr.totalSentences} 句</p>
+      ${errorList.length>0?`<div style="background:white;border-radius:12px;padding:12px;margin-bottom:12px;"><h4 style="margin-bottom:8px;font-size:0.9rem;">\\u26a0 易错单词 (${errorList.length}个) — 点击听发音</h4><div style="line-height:2;">${errorList.map(e=>`<span class="reading-report-word" onclick="speak('${e.word.replace(/'/g,"\\\\'")}',0.65)">${e.word} \\u00d7${e.count}</span>`).join(' ')}</div></div>`:''}
+      ${fr.errorSentences.length>0?`<button class="btn-extra" onclick="startCorrectionRound()">\\ud83d\\udd01 纠错轮 (${fr.errorSentences.length} 句需要重读)</button>`:''}
+      <button class="btn-done" onclick="stopAllReading();readingState=null;showReading();">\\ud83c\\udfe0 返回课文列表</button>
     </div>
   </div>`;
 }
 
-// ----- CORRECTION ROUND -----
 function startCorrectionRound(){
-  const sentences=readingState.correctionQueue;if(!sentences||sentences.length===0){stopReadRec();readingState=null;showReading();return;}
+  const sentences=readingState.correctionQueue;if(!sentences||sentences.length===0){stopAllReading();readingState=null;showReading();return;}
   readingState.currentIdx=sentences[0];readingState.correctionIdx=0;readingState.isCorrection=true;
   readingState.currentTranscript='';readingState.currentAligned=null;readingState.sentenceDone=false;readingState.isListening=false;
+  readingState.autoMode=false;readingPause=false;
   A.dailyState.phase='reading-correction';save();renderReadingActive();
 }
 
@@ -1329,19 +1261,15 @@ function nextCorrectionSentence(){
   if(!readingState)return;
   readingState.correctionIdx++;readingState.currentTranscript='';readingState.currentAligned=null;readingState.sentenceDone=false;readingState.isListening=false;
   if(readingState.correctionIdx>=readingState.correctionQueue.length){
-    // All corrected
     app.innerHTML=`<div class="page-view">
-      <div class="top-bar"><button class="btn-back" onclick="stopReadRec();readingState=null;showReading();">←</button><h2 style="flex:1;">✅ 纠错完成</h2><div style="width:40px;"></div></div>
+      <div class="top-bar"><button class="btn-back" onclick="stopAllReading();readingState=null;showReading();">\\u2190</button><h2 style="flex:1;">\\u2705 纠错完成</h2><div style="width:40px;"></div></div>
       <div class="complete-view pop" style="padding:0;">
-        <div class="emoji">🎉</div><h2>纠错完成！</h2><p class="message">所有错误句子都已纠正，继续保持！</p>
-        <button class="btn-done" onclick="stopReadRec();readingState=null;showReading();">🏠 返回课文列表</button>
+        <div class="emoji">\\ud83c\\udf89</div><h2>纠错完成！</h2><p class="message">所有错误句子都已纠正！</p>
+        <button class="btn-done" onclick="stopAllReading();readingState=null;showReading();">\\ud83c\\udfe0 返回课文列表</button>
       </div>
     </div>`;
-  }else{
-    renderReadingActive();
-  }
+  }else{renderReadingActive();}
 }
-
 
 // ===== NAVIGATION =====
 function goDashboard(){stopVoice('spellMic');initDaily();save();quizAnswered=false;rvAnswered=false;cardFlipped=false;spellAttempts=0;A.dailyState.phase=A.dailyState.date===today()&&(A.dailyState.newWordIds.length>0||A.dailyState.reviewQueue.length>0)?null:'complete';renderDashboard();}
