@@ -694,7 +694,7 @@ function renderQuiz(){
 function playQuizSound(){const w=A.wordBank.find(w=>w.id===quizWordId);if(!w)return;const b=document.getElementById('speakerBtn');if(b)b.classList.add('playing');speak(w.word,0.65).then(()=>{if(b)b.classList.remove('playing');});}
 function handleQuizAnswer(correct,sel){
   A.dailyState.quizResults.push({wordId:quizWordId,type:A.dailyState.quizType,correct});
-  if(correct){addPoints(PTS_CORRECT);}else{addWrong(quizWordId,'');}
+  if(correct){addPoints(PTS_CORRECT);}else{addWrong(quizWordId,'','拼写');}
   document.querySelectorAll('.quiz-option').forEach(b=>{b.classList.add('disabled');if(b.dataset.w===quizCorrect)b.classList.add(correct?'correct':'show-correct');else if(b.dataset.w===sel&&!correct)b.classList.add('wrong');});
   setTimeout(()=>{A.dailyState.currentQuiz++;quizAnswered=false;save();renderQuiz();},1400);
 }
@@ -736,7 +736,7 @@ function submitSpell(){if(quizAnswered)return;stopVoice('spellMic');const inp=do
   }else{spellAttempts++;
     if(spellAttempts===1){hint.textContent=`💡 提示：首字母 "${w.word[0].toUpperCase()}"，共 ${w.word.length} 个字母`;inp.value='';inp.focus();inp.classList.add('shake');setTimeout(()=>inp.classList.remove('shake'),400);
     }else{quizAnswered=true;fb.innerHTML=`<span style="color:#FF6B6B">正确答案：<strong>${w.word}</strong></span>`;inp.disabled=true;document.getElementById('btnSpellSubmit').disabled=true;
-      addWrong(quizWordId,ans);A.dailyState.quizResults.push({wordId:quizWordId,type:'spell',correct:false});
+      addWrong(quizWordId,ans,'拼写');A.dailyState.quizResults.push({wordId:quizWordId,type:'spell',correct:false});
       setTimeout(()=>{A.dailyState.currentQuiz++;quizAnswered=false;spellAttempts=0;save();renderQuiz();},2000);
     }
   }
@@ -777,7 +777,7 @@ function renderReview(){
 }
 function handleRvAnswer(correct,sel){
   const w=A.wordBank.find(w=>w.id===quizWordId);if(!w)return;A.dailyState.reviewResults.push({wordId:quizWordId,correct});
-  if(correct){if(w.reviewLevel<5)w.reviewLevel++;w.nextReview=getNextReview(w.reviewLevel);addPoints(PTS_CORRECT);}else{w.reviewLevel=0;w.nextReview=getNextReview(0);w.wrongCount=(w.wrongCount||0)+1;addWrong(quizWordId,'');}
+  if(correct){if(w.reviewLevel<5)w.reviewLevel++;w.nextReview=getNextReview(w.reviewLevel);addPoints(PTS_CORRECT);}else{w.reviewLevel=0;w.nextReview=getNextReview(0);w.wrongCount=(w.wrongCount||0)+1;addWrong(quizWordId,'','拼写');}
   document.querySelectorAll('.quiz-option').forEach(b=>{b.classList.add('disabled');if(b.dataset.w===rvCorrect)b.classList.add(correct?'correct':'show-correct');else if(b.dataset.w===sel&&!correct)b.classList.add('wrong');});
   setTimeout(()=>{A.dailyState.reviewIdx++;rvAnswered=false;save();renderReview();},1400);
 }
@@ -811,7 +811,7 @@ function submitRvSpell(){if(quizAnswered)return;stopVoice('spellMic');const inp=
   }else{spellAttempts++;
     if(spellAttempts===1){hint.textContent=`💡 提示：首字母 "${w.word[0].toUpperCase()}"，共 ${w.word.length} 个字母`;inp.value='';inp.focus();inp.classList.add('shake');setTimeout(()=>inp.classList.remove('shake'),400);}
     else{quizAnswered=true;fb.innerHTML=`<span style="color:#FF6B6B">正确答案：<strong>${w.word}</strong></span>`;inp.disabled=true;document.getElementById('btnSpellSubmit').disabled=true;
-      w.reviewLevel=0;w.nextReview=getNextReview(0);w.wrongCount=(w.wrongCount||0)+1;addWrong(quizWordId,ans);A.dailyState.reviewResults.push({wordId:quizWordId,correct:false});
+      w.reviewLevel=0;w.nextReview=getNextReview(0);w.wrongCount=(w.wrongCount||0)+1;addWrong(quizWordId,ans,'拼写');A.dailyState.reviewResults.push({wordId:quizWordId,correct:false});
       setTimeout(()=>{A.dailyState.reviewIdx++;quizAnswered=false;save();renderReview();},2000);
     }
   }
@@ -1304,7 +1304,7 @@ function finishReading(){
   A.readingHistory.push(rec);
   const text=A.readingTexts.find(t=>t.id===readingState.textId);
   if(text){text.lastRead=today();if(text.bestScore===null||pct>text.bestScore)text.bestScore=pct;}
-  errorList.forEach(e=>{const w=A.wordBank.find(x=>x.word.toLowerCase()===e.target.toLowerCase());if(w)addWrong(w.id,'朗读:'+(e.spoken||'未读'));});
+  errorList.forEach(e=>{const w=A.wordBank.find(x=>x.word.toLowerCase()===e.target.toLowerCase());if(w)addWrong(w.id,'朗读:'+(e.spoken||'未读'),'朗读');});
   if(pct>=90)addPoints(10);else if(pct>=70)addPoints(5);
   readingState.finalResults={score:pct,totalWords,totalErrors,errorList};
   save();A.dailyState.phase='reading-report';renderReadingReport();
