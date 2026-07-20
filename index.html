@@ -279,8 +279,8 @@ body {
 /* ===== READING MODULE ===== */
 .reading-textarea { width: 100%; min-height: 200px; padding: 14px; border: 2px solid #E9ECEF; border-radius: 14px; font-size: 0.95rem; font-family: inherit; line-height: 1.8; resize: vertical; outline: none; transition: border-color 0.15s; background: white; }
 .reading-textarea:focus { border-color: #FF6B6B; }
-.reading-full-text-wrap { position: relative; max-height: 55vh; overflow-y: auto; background: white; border-radius: 14px; padding: 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); font-size: 1.15rem; line-height: 2.2; scroll-behavior: smooth; }
-.reading-full-text-wrap .word-token { display: inline; padding: 2px 5px; border-radius: 5px; transition: background 0.2s, color 0.2s; cursor: default; margin: 0 1px; }
+.reading-full-text-wrap { position: relative; max-height: 55vh; overflow-y: auto; overflow-x: hidden; background: white; border-radius: 14px; padding: 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); font-size: 1.15rem; line-height: 2.2; scroll-behavior: smooth; word-wrap: break-word; word-break: break-word; }
+.reading-full-text-wrap .word-token { display: inline; padding: 2px 5px; border-radius: 5px; transition: background 0.2s, color 0.2s; cursor: default; margin: 0 1px; white-space: normal; }
 .reading-full-text-wrap .word-token.correct { background: #D3F9D8; color: #2B8A3E; }
 .reading-full-text-wrap .word-token.wrong { background: #FFE3E3; color: #C92A2A; }
 .reading-full-text-wrap .word-token.skipped { background: #FFF3BF; color: #E67700; }
